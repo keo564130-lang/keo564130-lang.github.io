@@ -404,6 +404,53 @@
     let allChannels = [];
     let pendingAvatar = null;
 
+    // --- STARTUP LOGIC (Fix for F5/Refresh) ---
+    // Проверяем сессию СРАЗУ при загрузке страницы
+    document.addEventListener("DOMContentLoaded", async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            console.log("Session found on load, initializing...");
+            initApp(session.user);
+        } else {
+            console.log("No session on load");
+        }
+    });
+
+    // Слушатель изменений (вход/выход)
+    supabase.auth.onAuthStateChange(async (evt, session) => {
+        if (session) {
+            // Если пользователь сменился или зашел
+            if (!currentUser || currentUser.id !== session.user.id) {
+                initApp(session.user);
+            }
+        } else {
+            currentUser = null;
+            document.getElementById('auth-screen').style.display = 'block';
+            document.getElementById('app-container').style.display = 'none';
+        }
+    });
+
+    async function initApp(user) {
+        currentUser = user;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        
+        console.log("Initializing app for:", user.email);
+        
+        // 1. Сначала убедимся что профиль существует
+        try {
+            await ensureProfile();
+        } catch(e) { console.error("Profile error:", e); }
+        
+        // 2. Загружаем данные
+        loadGlobalData();
+        
+        // 3. Загружаем настройки
+        fillSettings();
+
+        switchTab('contacts');
+    }
+
     // --- TOAST NOTIFICATION ---
     function showToast(msg, isError = false) {
         const box = document.getElementById('toast-box');
@@ -429,37 +476,19 @@
     const savedBg = localStorage.getItem('folks_bg') || 'aurora';
     document.body.setAttribute('data-bg', savedBg);
 
-    // --- AUTH ---
-    supabase.auth.onAuthStateChange(async (evt, session) => {
-        if(session) {
-            currentUser = session.user;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            
-            // 1. Сразу грузим данные
-            loadGlobalData();
-            
-            // 2. Фоновая проверка профиля (try-catch чтобы не падало)
-            try {
-                await ensureProfile();
-            } catch(e) { console.log('Profile update skipped'); }
-            
-            // 3. Заполняем настройки
-            const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-            if(data) {
-                document.getElementById('edit-name').value = data.display_name || '';
-                if(data.avatar_base64) document.getElementById('avatar-preview').src = data.avatar_base64;
-            }
-            switchTab('contacts');
-        } else {
-            document.getElementById('auth-screen').style.display = 'block';
-            document.getElementById('app-container').style.display = 'none';
-        }
-    });
-
     async function ensureProfile() {
+        // Используем upsert чтобы создать если нет, или обновить last_online если есть
         await supabase.from('profiles').upsert({ id: currentUser.id, email: currentUser.email, last_online: Date.now() }, { onConflict: 'id' });
     }
+
+    async function fillSettings() {
+        const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        if(data) {
+            document.getElementById('edit-name').value = data.display_name || '';
+            if(data.avatar_base64) document.getElementById('avatar-preview').src = data.avatar_base64;
+        }
+    }
+
     async function doLogin() {
         const { error } = await supabase.auth.signInWithPassword({ 
             email: document.getElementById('email').value, 
@@ -478,7 +507,8 @@
 
     // --- DATA ---
     function loadGlobalData() {
-        supabase.channel('global')
+        // Подписка Realtime
+        supabase.channel('global_updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchUsers)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, fetchChannels)
             .subscribe();
@@ -488,10 +518,13 @@
     }
 
     async function fetchUsers() {
-        const { data } = await supabase.from('profiles').select('*');
+        const { data, error } = await supabase.from('profiles').select('*');
+        if(error) { console.error("Error fetching users:", error); return; }
+        
         if(data) {
             allUsers = data.filter(u => u.email !== currentUser.email);
-            // Определяем с кем есть переписка
+            
+            // Определяем с кем есть переписка (сканируем все сообщения где мы участвуем)
             const { data: msgs } = await supabase.from('messages').select('chat_id');
             const partners = new Set();
             if(msgs) {
@@ -502,12 +535,16 @@
                 });
             }
             myChats = allUsers.filter(u => partners.has(u.email));
+            
+            // Если мы на вкладке контактов - обновить список
             if(currentMode === 'contacts') renderList();
         }
     }
 
     async function fetchChannels() {
-        const { data } = await supabase.from('channels').select('*').order('created_at', {ascending: false});
+        const { data, error } = await supabase.from('channels').select('*').order('created_at', {ascending: false});
+        if(error) { console.error("Error fetching channels:", error); return; }
+
         if(data) {
             allChannels = data;
             if(currentMode === 'channels') renderList();
@@ -527,7 +564,6 @@
         
         document.getElementById('create-channel-btn').style.display = tab === 'channels' ? 'block' : 'none';
         
-        // Mobile view logic
         if(window.innerWidth <= 900) {
             document.getElementById('settings-mobile-btn').style.display = 'block';
             document.getElementById('app-container').classList.remove('mobile-view-chat');
@@ -633,8 +669,10 @@
         if(activeSub) supabase.removeChannel(activeSub);
 
         const filterCol = currentMode === 'contacts' ? 'chat_id' : 'channel_id';
-        const { data } = await supabase.from(table).select('*').eq(filterCol, filterId).order('created_at', {ascending: true}).limit(100);
+        const { data, error } = await supabase.from(table).select('*').eq(filterCol, filterId).order('created_at', {ascending: true}).limit(100);
         
+        if(error) console.error("Msg Load Error:", error);
+
         container.innerHTML = '';
         if(data) data.forEach(msg => renderMessage(msg));
         scrollToBottom();
