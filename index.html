@@ -11,8 +11,7 @@
     <style>
         :root {
             --font-main: 'Inter', sans-serif;
-            --font-size-base: 16px; /* Dynamic */
-            --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --font-size-base: 16px;
             --bg-glass: rgba(20, 20, 20, 0.6);
             --bg-panel: rgba(0, 0, 0, 0.4);
             --border-glass: rgba(255, 255, 255, 0.15);
@@ -21,25 +20,29 @@
             --accent-blue: #0A84FF;
             --danger: #FF3B30;
             --island-radius: 40px;
+            --msg-padding: 12px 18px;
+            --blur-strength: 40px;
             
-            --msg-padding: 12px 18px; /* Dynamic for Compact Mode */
-            --blur-strength: 40px; /* Dynamic */
+            /* Default BG */
+            --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
         }
 
-        /* Wallpapers */
+        /* --- 10 WALLPAPERS --- */
+        [data-bg="aurora"]   { --bg-gradient: linear-gradient(135deg, #000428, #004e92); }
         [data-bg="midnight"] { --bg-gradient: linear-gradient(to bottom, #000000, #1a1a1a); }
         [data-bg="cosmos"]   { --bg-gradient: linear-gradient(135deg, #2b1055, #7597de); }
-        [data-bg="aurora"]   { --bg-gradient: linear-gradient(135deg, #000428, #004e92); }
         [data-bg="fire"]     { --bg-gradient: linear-gradient(135deg, #480048, #C04848); }
-        
-        /* Font Sizes */
+        [data-bg="forest"]   { --bg-gradient: linear-gradient(135deg, #134E5E, #71B280); }
+        [data-bg="ocean"]    { --bg-gradient: linear-gradient(135deg, #1A2980, #26D0CE); }
+        [data-bg="sunset"]   { --bg-gradient: linear-gradient(135deg, #FF512F, #DD2476); }
+        [data-bg="royal"]    { --bg-gradient: linear-gradient(135deg, #141E30, #243B55); }
+        [data-bg="matrix"]   { --bg-gradient: linear-gradient(135deg, #000000, #0f9b0f); }
+        [data-bg="candy"]    { --bg-gradient: linear-gradient(135deg, #eecda3, #ef629f); }
+
+        /* MODIFIERS */
         body.font-small { --font-size-base: 13px; }
         body.font-large { --font-size-base: 19px; }
-        
-        /* Compact Mode */
         body.compact-mode { --msg-padding: 6px 12px; }
-
-        /* Blur Levels */
         body.blur-low { --blur-strength: 10px; }
         body.blur-none { --blur-strength: 0px; }
 
@@ -49,7 +52,7 @@
             font-family: var(--font-main);
             background: var(--bg-gradient);
             background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
+            animation: gradientBG 20s ease infinite;
             color: var(--text-primary);
             height: 100vh;
             display: flex;
@@ -65,8 +68,8 @@
             100% { background-position: 0% 50%; }
         }
 
-        button { cursor: pointer; border: none; font-family: var(--font-main); font-size: inherit; }
-        input, textarea, select { font-family: var(--font-main); font-size: inherit; }
+        button, input, textarea, select { font-family: var(--font-main); font-size: inherit; }
+        button { cursor: pointer; border: none; }
 
         /* AUTH */
         #auth-screen {
@@ -87,7 +90,7 @@
         }
         .btn-main:active { transform: scale(0.97); opacity: 0.9; }
 
-        /* APP */
+        /* APP LAYOUT */
         #app-container {
             display: none; width: 100%; height: 100%; max-width: 1600px;
             display: flex; position: relative;
@@ -211,10 +214,18 @@
         .user-detail-label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 5px; display:block;}
         .user-detail-value { font-weight: 500; }
 
-        .bg-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-        .bg-option { height: 50px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
-        .bg-option:hover { transform: scale(1.05); }
-        .bg-option.active { border-color: white; transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        /* WALLPAPER GRID (5 columns x 2 rows) */
+        .bg-selector { 
+            display: grid; 
+            grid-template-columns: repeat(5, 1fr); 
+            gap: 10px; margin-bottom: 20px; 
+        }
+        .bg-option { 
+            height: 40px; border-radius: 10px; cursor: pointer; 
+            border: 2px solid transparent; transition: 0.2s; 
+        }
+        .bg-option:hover { transform: scale(1.1); }
+        .bg-option.active { border-color: white; transform: scale(1.15); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         
         /* TOAST NOTIFICATION */
         #toast-box {
@@ -246,7 +257,7 @@
         .island-item.active { color: white; transform: translateY(-2px); }
         .island-item.active .island-icon { text-shadow: 0 0 15px rgba(255,255,255,0.6); }
 
-        /* SETTINGS UI */
+        /* UI ELEMENTS */
         .type-selector { display: flex; gap: 10px; margin-bottom: 20px; }
         .type-option { flex: 1; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid transparent; cursor: pointer; text-align: center; font-size: 0.9em; transition: 0.2s; }
         .type-option.active { background: var(--accent-blue); color: white; }
@@ -283,6 +294,9 @@
             .input-bar { position: fixed; bottom: 0; width: 100%; z-index: 900; background: transparent; padding: 10px 15px 120px 15px; pointer-events: none;}
             .msg-input-box, .send-btn { pointer-events: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.5); background: rgba(30,30,30,0.8); backdrop-filter: blur(20px); }
             .send-btn { background: var(--accent-blue); }
+            
+            /* Responsive Grid on mobile */
+            .bg-selector { grid-template-columns: repeat(5, 1fr); }
         }
 
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -404,12 +418,18 @@
 
             <div class="settings-section-title">🎨 Интерфейс</div>
 
-            <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:5px;">[6] Обои</label>
+            <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:5px;">[6] Обои (10 стилей)</label>
             <div class="bg-selector">
-                <div class="bg-option bg-aurora active" onclick="setBg('aurora', this)"></div>
-                <div class="bg-option bg-cosmos" onclick="setBg('cosmos', this)"></div>
-                <div class="bg-option bg-fire" onclick="setBg('fire', this)"></div>
-                <div class="bg-option bg-midnight" onclick="setBg('midnight', this)"></div>
+                <div class="bg-option bg-aurora active" onclick="setBg('aurora', this)" title="Аврора"></div>
+                <div class="bg-option bg-midnight" onclick="setBg('midnight', this)" title="Полночь"></div>
+                <div class="bg-option bg-cosmos" onclick="setBg('cosmos', this)" title="Космос"></div>
+                <div class="bg-option bg-fire" onclick="setBg('fire', this)" title="Огонь"></div>
+                <div class="bg-option bg-forest" onclick="setBg('forest', this)" title="Лес"></div>
+                <div class="bg-option bg-ocean" onclick="setBg('ocean', this)" title="Океан"></div>
+                <div class="bg-option bg-sunset" onclick="setBg('sunset', this)" title="Закат"></div>
+                <div class="bg-option bg-royal" onclick="setBg('royal', this)" title="Королевский"></div>
+                <div class="bg-option bg-matrix" onclick="setBg('matrix', this)" title="Матрица"></div>
+                <div class="bg-option bg-candy" onclick="setBg('candy', this)" title="Конфетка"></div>
             </div>
 
             <div class="settings-list">
