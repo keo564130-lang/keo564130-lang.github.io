@@ -366,7 +366,9 @@
     const SUPABASE_URL = 'https://aamihtxqmjtdgsrswimk.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbWlodHhxbWp0ZGdzcnN3aW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjI4OTgsImV4cCI6MjA3OTI5ODg5OH0.y8gVqk7kqfjegUkDZIbL2XeEh9E6PR5KEGjXSyzKz-E';
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // ВАЖНО: Мы переименовали переменную в supabaseClient чтобы избежать ошибки инициализации
+    // window.supabase - это сама библиотека, а supabaseClient - это наш подключенный клиент
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
     let chatPartner = null; 
@@ -421,7 +423,7 @@
     }
 
     // --- AUTH ---
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (session) {
             currentUser = session.user;
             document.getElementById('auth-screen').style.display = 'none';
@@ -433,7 +435,7 @@
             requestNotificationPermission();
 
             // Подгружаем инфо в модалку настроек
-            const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).single();
             if(profile) {
                 document.getElementById('edit-name').value = profile.display_name || '';
                 document.getElementById('edit-description').value = profile.description || '';
@@ -450,14 +452,14 @@
     async function doLogin() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if(error) document.getElementById('auth-error').innerText = error.message;
     }
 
     async function doRegister() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabaseClient.auth.signUp({ email, password });
         if(error) {
             document.getElementById('auth-error').innerText = error.message;
         } else {
@@ -467,15 +469,15 @@
     }
 
     async function doLogout() { 
-        await supabase.auth.signOut(); 
+        await supabaseClient.auth.signOut(); 
         location.reload(); 
     }
 
     // Создаем запись в публичной таблице profiles, если её нет
     async function ensureProfileExists() {
-        const { data } = await supabase.from('profiles').select('id').eq('id', currentUser.id).single();
+        const { data } = await supabaseClient.from('profiles').select('id').eq('id', currentUser.id).single();
         if(!data) {
-            await supabase.from('profiles').insert([{ 
+            await supabaseClient.from('profiles').insert([{ 
                 id: currentUser.id, 
                 email: currentUser.email,
                 last_online: Date.now()
@@ -488,7 +490,7 @@
     // Загрузка пользователей и чатов
     function loadData() {
         // 1. Подписываемся на изменения в таблице profiles (новые юзеры)
-        const profilesChannel = supabase.channel('public:profiles')
+        const profilesChannel = supabaseClient.channel('public:profiles')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
                 fetchAllUsers(); // Просто перегружаем список при изменениях
             })
@@ -499,7 +501,7 @@
     }
 
     async function fetchAllUsers() {
-        const { data, error } = await supabase.from('profiles').select('*');
+        const { data, error } = await supabaseClient.from('profiles').select('*');
         if(data) {
             allUsers = data.filter(u => u.email !== currentUser.email);
             identifyActiveChats(); // После загрузки юзеров ищем чаты
@@ -511,13 +513,8 @@
         // Ищем все сообщения, где chat_id содержит мой email
         // chat_id формируется как: emailA_emailB (по алфавиту)
         
-        // Получаем все уникальные chat_id, где участвует текущий юзер
-        // Так как Supabase JS Client не имеет простого distinct по полю для фильтра like,
-        // сделаем хитрее: просто загрузим заголовки сообщений за последнее время или все уникальные ID.
         // Для простоты в этом демо: загрузим все messages (только поля chat_id) и отфильтруем в JS.
-        // В продакшене лучше делать через RPC функцию Postgres.
-        
-        const { data } = await supabase.from('messages').select('chat_id');
+        const { data } = await supabaseClient.from('messages').select('chat_id');
         
         myActiveChats = [];
         if(data) {
@@ -593,10 +590,10 @@
         document.getElementById('messages').innerHTML = '';
         
         // Отписываемся от старого канала
-        if (activeSubscription) supabase.removeChannel(activeSubscription);
+        if (activeSubscription) supabaseClient.removeChannel(activeSubscription);
 
         // 1. Загружаем историю (последние 50)
-        const { data: history } = await supabase
+        const { data: history } = await supabaseClient
             .from('messages')
             .select('*')
             .eq('chat_id', activeChatId)
@@ -609,7 +606,7 @@
         }
 
         // 2. Подписываемся на новые (Realtime)
-        activeSubscription = supabase.channel(`chat:${activeChatId}`)
+        activeSubscription = supabaseClient.channel(`chat:${activeChatId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${activeChatId}` }, payload => {
                 renderMessage(payload.new);
                 scrollToBottom();
@@ -638,7 +635,7 @@
         if(!txt || !activeChatId) return;
         
         // Отправка в Supabase
-        await supabase.from('messages').insert([{
+        await supabaseClient.from('messages').insert([{
             chat_id: activeChatId,
             sender: currentUser.email,
             text: txt,
@@ -694,7 +691,7 @@
         };
         if(pendingAvatarBase64) updates.avatar_base64 = pendingAvatarBase64;
 
-        await supabase.from('profiles').update(updates).eq('id', currentUser.id);
+        await supabaseClient.from('profiles').update(updates).eq('id', currentUser.id);
         closeModal('settings-modal');
     }
 
