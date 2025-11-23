@@ -6,6 +6,8 @@
     <title>Folks Messenger Ultimate</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
@@ -19,6 +21,7 @@
             --text-secondary: rgba(255, 255, 255, 0.6);
             --accent-blue: #0A84FF;
             --danger: #FF3B30;
+            --success: #30D158;
             --island-radius: 40px;
             --msg-padding: 12px 18px;
             --blur-strength: 40px;
@@ -149,6 +152,14 @@
         }
         .chat-header:hover { background: rgba(255,255,255,0.05); }
 
+        /* CALL BUTTON */
+        #call-btn {
+            background: var(--success); color: white; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 1.2em; margin-left: auto;
+            transition: 0.2s; box-shadow: 0 0 15px rgba(48, 209, 88, 0.4);
+        }
+        #call-btn:hover { transform: scale(1.1); }
+
         .messages-container {
             flex: 1; padding: 20px; overflow-y: auto; padding-bottom: 120px;
             display: flex; flex-direction: column; gap: 8px;
@@ -167,7 +178,12 @@
             align-self: flex-start; background: rgba(255,255,255,0.1); color: white;
             border-bottom-left-radius: 4px; border: 1px solid var(--border-glass);
         }
-        .msg-sender-name { font-size: 0.8em; opacity: 0.7; margin-bottom: 3px; display: block; color: var(--accent-blue); font-weight: 700; }
+        /* Call Message Style */
+        .msg.call-msg {
+            align-self: center; background: rgba(48, 209, 88, 0.2); border: 1px solid var(--success);
+            color: white; cursor: pointer; text-align: center; width: 100%; max-width: 300px;
+        }
+        .msg.call-msg:hover { background: rgba(48, 209, 88, 0.4); }
         
         .delete-msg-btn {
             position: absolute; top: -8px; right: -8px; width: 22px; height: 22px;
@@ -190,6 +206,12 @@
             width: 46px; height: 46px; border-radius: 50%; background: var(--accent-blue); color: white;
             display: flex; align-items: center; justify-content: center; font-size: 1.2em;
             box-shadow: 0 0 20px rgba(10, 132, 255, 0.4);
+        }
+
+        /* VIDEO CALL CONTAINER */
+        #video-call-container {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 9999; display: none;
         }
 
         /* MODALS */
@@ -304,6 +326,8 @@
 </head>
 <body data-bg="aurora">
 
+    <div id="video-call-container"></div>
+
     <div id="toast-box">
         <div class="toast-icon" id="toast-icon">✅</div>
         <div class="toast-msg" id="toast-text">Действие выполнено</div>
@@ -330,7 +354,7 @@
             <div style="padding: 10px 0 10px 0;">
                 <div class="header-row">
                     <h2 class="header-title" id="panel-title">Чаты</h2>
-                    <button id="create-channel-btn" onclick="openCreateChannel()" style="display:none; width:36px; height:36px; border-radius:50%; background:var(--accent-blue); color:white; font-size:20px; box-shadow:0 0 15px rgba(10,132,255,0.5);">+</button>
+                    <button id="create-channel-btn" onclick="openCreateChannel()" style="display:none; width:36px; height:36px; border-radius:50%; background:var(--accent-blue); color:white; font-size:1.2em; box-shadow:0 0 15px rgba(10,132,255,0.5);">+</button>
                     <button id="settings-mobile-btn" class="settings-btn-top" onclick="openSettings()" style="display:none;">⚙️</button>
                 </div>
                 <div class="search-wrapper">
@@ -343,16 +367,19 @@
 
         <div class="chat-area" id="chat-panel">
             <div class="chat-header">
-                <div style="display:flex; align-items:center; flex:1;" onclick="showChatInfo()">
+                <button onclick="closeChatMobile()" style="background:transparent; color:white; font-size:24px; display:none; margin-right:10px;" id="back-btn">✕</button>
+                
+                <div style="display:flex; align-items:center; flex:1; cursor:pointer;" onclick="showChatInfo()">
                     <div class="avatar" id="current-avatar" style="width:36px; height:36px; font-size:14px;">?</div>
                     <div style="margin-left:15px;">
-                        <h3 id="current-chat-name" style="font-size:16px;">Чат</h3>
-                        <span id="current-chat-desc" style="font-size:12px; color:var(--accent-blue);">информация &rarr;</span>
+                        <h3 id="current-chat-name" style="font-size:1em;">Чат</h3>
+                        <span id="current-chat-desc" style="font-size:0.8em; color:var(--accent-blue);">информация</span>
                     </div>
                 </div>
-                <button id="add-member-btn" onclick="openAddMemberModal()" style="display:none; background:rgba(255,255,255,0.1); color:white; width:36px; height:36px; border-radius:50%; margin-right:10px; font-size:16px;">👤+</button>
                 
-                <button onclick="closeChatMobile()" style="background:transparent; color:white; font-size:24px; display:none; margin-left:auto;" id="back-btn">✕</button>
+                <button id="add-member-btn" onclick="openAddMemberModal()" style="display:none; background:rgba(255,255,255,0.1); color:white; width:36px; height:36px; border-radius:50%; margin-right:10px;">👤+</button>
+                
+                <button id="call-btn" onclick="startVideoCall()">📞</button>
             </div>
             <div class="messages-container" id="messages">
                 <div style="text-align:center; margin-top:50%; opacity:0.5;">
@@ -577,8 +604,13 @@
     </div>
 
 <script>
+    // --- 1. CONFIGURATION ---
     const SUPABASE_URL = 'https://aamihtxqmjtdgsrswimk.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbWlodHhxbWp0ZGdzcnN3aW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjI4OTgsImV4cCI6MjA3OTI5ODg5OH0.y8gVqk7kqfjegUkDZIbL2XeEh9E6PR5KEGjXSyzKz-E';
+    
+    // ZEGO CLOUD KEYS
+    const ZEGO_APP_ID = 1546933585; 
+    const ZEGO_SERVER_SECRET = "5dc70c72eb761dcabb48c04114a54d29";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -600,6 +632,14 @@
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
             initApp(session.user);
+        }
+        
+        // Check URL for join call
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomID = urlParams.get('roomID');
+        if(roomID) {
+            // Ideally show a "Join Call" button if logged in
+            console.log("Incoming call room:", roomID);
         }
     });
 
@@ -623,6 +663,47 @@
         loadGlobalData();
         fillSettings();
         switchTab('contacts');
+    }
+
+    // --- ZEGO CLOUD VIDEO CALLS ---
+    function startVideoCall() {
+        if(!activeChatId) return;
+        
+        // 1. Generate unique Room ID based on Chat ID
+        const roomID = "room_" + activeChatId + "_" + Date.now();
+        const roomLink = window.location.protocol + "//" + window.location.host + window.location.pathname + "?roomID=" + roomID;
+
+        // 2. Send Message to Chat
+        sendMessage(`📞 <b>Входящий звонок</b><br><button style='margin-top:5px; background:#30D158; color:white; padding:5px 10px; border-radius:10px;' onclick='joinVideoCall("${roomID}")'>Присоединиться</button>`, true);
+
+        // 3. Join Myself
+        joinVideoCall(roomID);
+    }
+
+    function joinVideoCall(roomID) {
+        const container = document.getElementById('video-call-container');
+        container.style.display = 'block';
+
+        // Generate Token
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+            ZEGO_APP_ID, 
+            ZEGO_SERVER_SECRET, 
+            roomID, 
+            currentUser.id, 
+            currentUser.email
+        );
+
+        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        zp.joinRoom({
+            container: container,
+            sharedLinks: [{ name: 'Call Link', url: window.location.protocol + '//' + window.location.host + window.location.pathname + '?roomID=' + roomID }],
+            scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall }, // Or GroupCall
+            showPreJoinView: false,
+            onLeaveRoom: () => {
+                container.style.display = 'none';
+                window.location.reload(); // Reload to clear Zego state
+            }
+        });
     }
 
     // --- NOTIFICATIONS ---
@@ -863,9 +944,11 @@
         const avEl = document.getElementById('current-avatar');
         const addBtn = document.getElementById('add-member-btn');
         const inputBar = document.querySelector('.input-bar');
+        const callBtn = document.getElementById('call-btn');
         
         addBtn.style.display = 'none';
         inputBar.style.display = 'flex';
+        callBtn.style.display = isChannel ? 'none' : 'flex';
 
         if(isChannel) {
             avEl.innerHTML = activeChatMeta.is_private ? '🔒' : '📢';
@@ -916,7 +999,7 @@
         activeSub = supabase.channel('chat_' + filterId)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: table, filter: `${filterCol}=eq.${filterId}` }, payload => {
                 if(userSettings.sound && payload.new.sender !== currentUser.email) {
-                    console.log("Beep"); // Placeholder for sound
+                    // Play sound here if needed
                 }
                 renderMessage(payload.new);
                 scrollToBottom();
@@ -933,6 +1016,19 @@
         div.id = `msg-${msg.id}`;
         const isMe = msg.sender === currentUser.email;
         div.className = `msg ${isMe ? 'me' : 'them'}`;
+        
+        // Special style for Calls
+        if(msg.text.includes('Входящий звонок')) {
+            div.classList.add('call-msg');
+            // Make sure HTML buttons work
+            div.innerHTML = msg.text;
+            // Add delete button
+            if(isMe) {
+                 div.innerHTML += `<div class="delete-msg-btn" onclick="deleteMessage(${msg.id})">✕</div>`;
+            }
+            document.getElementById('messages').appendChild(div);
+            return;
+        }
         
         let canDelete = false;
         
@@ -962,11 +1058,11 @@
         document.getElementById('messages').appendChild(div);
     }
 
-    async function sendMessage() {
-        const txt = document.getElementById('msg-input').value.trim();
+    async function sendMessage(txtOverride = null, isHtml = false) {
+        const txt = txtOverride || document.getElementById('msg-input').value.trim();
         if(!txt || !activeChatId) return;
 
-        if(currentMode === 'channels') {
+        if(currentMode === 'channels' && !txtOverride) {
             const isOwner = activeChatMeta.owner_email === currentUser.email;
             if(activeChatMeta.setting_block_links && !isOwner) {
                 if(txt.includes('http') || txt.includes('www') || txt.includes('.com')) {
@@ -989,7 +1085,7 @@
         if(error) {
             showToast("Ошибка отправки", true);
         } else {
-            document.getElementById('msg-input').value = '';
+            if(!txtOverride) document.getElementById('msg-input').value = '';
             if(currentMode === 'contacts' && !myChats.find(u => u.email === activeChatMeta.email)) {
                 myChats.push(activeChatMeta);
                 if(document.getElementById('search-input').value === '') renderList();
@@ -1001,7 +1097,11 @@
         if(!confirm('Удалить сообщение?')) return;
         const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
         const { error } = await supabase.from(table).delete().eq('id', id);
-        if(error) showToast("Нельзя удалить", true);
+        if(error) showToast("Ошибка: нужны права на удаление", true);
+        else {
+            // UI update happens via subscription
+            showToast("Удалено");
+        }
     }
 
     function scrollToBottom() {
@@ -1073,7 +1173,7 @@
         
         const { error } = await supabase.from('channels').delete().eq('id', activeChatId);
         
-        if(error) showToast("Ошибка удаления", true);
+        if(error) showToast("Ошибка: нужен каскад в БД", true);
         else {
              showToast("Канал удален");
              closeModal('partner-modal');
