@@ -381,7 +381,10 @@
     let activeChatId = null;
     let currentMessageRef = null;
     let pendingAvatarBase64 = null;
-    let allUsers = [];
+    
+    // Храним два списка: все юзеры (для поиска) и активные (для главной)
+    let allUsers = []; 
+    let myActiveChats = []; 
 
     // --- NOTIFICATIONS LOGIC ---
     function requestNotificationPermission() {
@@ -392,8 +395,6 @@
 
     function sendNotification(title, body) {
         if ("Notification" in window && Notification.permission === "granted") {
-            // Играем звук (опционально)
-            // const audio = new Audio('path_to_sound.mp3'); audio.play();
             new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png' });
         }
     }
@@ -436,9 +437,10 @@
             currentUser = user;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex'; 
-            loadAllUsers();
             
-            // Запрашиваем разрешение на уведомления при входе
+            // Запускаем новую логику загрузки данных
+            loadData();
+            
             requestNotificationPermission();
 
             const safeEmail = user.email.replace(/\./g, ',');
@@ -472,19 +474,78 @@
         db.ref('users/' + safeEmail).update({ email: user.email, lastOnline: Date.now() });
     }
 
-    // --- DATA ---
-    function loadAllUsers() {
-        db.ref('users').on('value', s => {
+    // --- DATA & LOGIC CHANGE HERE ---
+    
+    // Основная функция загрузки данных
+    function loadData() {
+        // 1. Сначала загружаем ВСЕХ пользователей (для поиска)
+        db.ref('users').on('value', uSnap => {
+            const uVal = uSnap.val();
             allUsers = [];
-            const data = s.val();
-            if (data) Object.values(data).forEach(u => { if (u.email !== currentUser.email) allUsers.push(u); });
-            renderUsers(allUsers);
+            if(uVal) {
+                Object.values(uVal).forEach(u => { 
+                    if (u.email !== currentUser.email) allUsers.push(u); 
+                });
+            }
+
+            // 2. После загрузки пользователей проверяем чаты, чтобы сформировать "Мои чаты"
+            identifyActiveChats();
         });
     }
 
-    function renderUsers(list) {
+    // Функция определения с кем у нас есть чат
+    function identifyActiveChats() {
+        const mySafe = currentUser.email.replace(/\./g, ',');
+        
+        // Читаем список всех чатов
+        db.ref('private_messages').once('value', snapshot => {
+            myActiveChats = [];
+            const chats = snapshot.val();
+            
+            if (chats) {
+                // Собираем email-ы партнеров
+                const partnerEmails = new Set();
+                
+                Object.keys(chats).forEach(chatKey => {
+                    // Ключ чата выглядит как email1_email2
+                    if (chatKey.includes(mySafe)) {
+                        const parts = chatKey.split('_');
+                        const partnerSafe = parts[0] === mySafe ? parts[1] : parts[0];
+                        partnerEmails.add(partnerSafe);
+                    }
+                });
+
+                // Фильтруем allUsers, оставляя только тех, кто есть в partnerEmails
+                myActiveChats = allUsers.filter(u => {
+                    const uSafe = u.email.replace(/\./g, ',');
+                    return partnerEmails.has(uSafe);
+                });
+            }
+
+            // Если поле поиска пустое, рендерим только активные чаты
+            const searchVal = document.getElementById('search-input').value;
+            if(!searchVal) {
+                renderUsers(myActiveChats, "Ваши чаты");
+            } else {
+                filterUsers(); // Если там что-то написано, обновляем поиск
+            }
+        });
+    }
+
+    function renderUsers(list, titleOverride) {
         const el = document.getElementById('users-list');
         el.innerHTML = '';
+        
+        // Меняем заголовок в зависимости от контекста
+        if (titleOverride) {
+            document.querySelector('.header-title').innerText = titleOverride;
+        }
+
+        if (list.length === 0) {
+            el.innerHTML = `<div style="text-align:center; opacity:0.5; margin-top:20px; font-size:14px;">Никого не найдено <br> Воспользуйтесь поиском 🔍</div>`;
+            return;
+        }
+
         list.forEach(u => {
             const div = document.createElement('div');
             div.className = 'user-card';
@@ -498,9 +559,19 @@
             el.appendChild(div);
         });
     }
+
+    // --- LOGIC SEARCH UPDATE ---
     function filterUsers() {
-        const term = document.getElementById('search-input').value.toLowerCase();
-        renderUsers(allUsers.filter(u => (u.displayName || u.email).toLowerCase().includes(term)));
+        const term = document.getElementById('search-input').value.toLowerCase().trim();
+        
+        if (term === "") {
+            // Если поиск пустой -> показываем только тех, с кем есть переписка
+            renderUsers(myActiveChats, "Чаты");
+        } else {
+            // Если в поиске что-то есть -> ищем по ВСЕМ пользователям
+            const filtered = allUsers.filter(u => (u.displayName || u.email).toLowerCase().includes(term));
+            renderUsers(filtered, "Глобальный поиск");
+        }
     }
 
     // --- CHAT ---
@@ -524,8 +595,6 @@
             document.getElementById('messages').appendChild(div);
             document.getElementById('messages').scrollTop = 99999;
 
-            // --- NOTIFICATION CHECK ---
-            // Если сообщение НЕ мое и оно пришло только что (меньше 1 секунды назад)
             if(msg.sender !== currentUser.email && (Date.now() - msg.timestamp) < 2000) {
                 sendNotification(`Сообщение от ${pName}`, msg.text);
             }
@@ -536,8 +605,18 @@
     function sendMessage() {
         const txt = document.getElementById('msg-input').value.trim();
         if(!txt || !activeChatId) return;
+        
         db.ref('private_messages/' + activeChatId).push({ sender: currentUser.email, text: txt, timestamp: Date.now() });
         document.getElementById('msg-input').value = '';
+
+        // Если мы отправляем сообщение, добавляем собеседника в активные чаты
+        const alreadyInChat = myActiveChats.find(u => u.email === chatPartner.email);
+        if (!alreadyInChat) {
+            myActiveChats.push(chatPartner);
+            if(document.getElementById('search-input').value === "") {
+                renderUsers(myActiveChats, "Чаты");
+            }
+        }
     }
 
     // --- MODALS ---
