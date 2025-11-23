@@ -236,7 +236,7 @@
         .user-detail-label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 5px; display:block;}
         .user-detail-value { font-weight: 500; }
 
-        /* WALLPAPER GRID (5 columns x 2 rows) */
+        /* WALLPAPER GRID */
         .bg-selector { 
             display: grid; 
             grid-template-columns: repeat(5, 1fr); 
@@ -317,7 +317,6 @@
             .msg-input-box, .send-btn { pointer-events: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.5); background: rgba(30,30,30,0.8); backdrop-filter: blur(20px); }
             .send-btn { background: var(--accent-blue); }
             
-            /* Responsive Grid on mobile */
             .bg-selector { grid-template-columns: repeat(5, 1fr); }
         }
 
@@ -608,7 +607,7 @@
     const SUPABASE_URL = 'https://aamihtxqmjtdgsrswimk.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbWlodHhxbWp0ZGdzcnN3aW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjI4OTgsImV4cCI6MjA3OTI5ODg5OH0.y8gVqk7kqfjegUkDZIbL2XeEh9E6PR5KEGjXSyzKz-E';
     
-    // ZEGO CLOUD KEYS
+    // ZEGO CLOUD KEYS (YOUR KEYS)
     const ZEGO_APP_ID = 1546933585; 
     const ZEGO_SERVER_SECRET = "5dc70c72eb761dcabb48c04114a54d29";
 
@@ -638,7 +637,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const roomID = urlParams.get('roomID');
         if(roomID) {
-            // Ideally show a "Join Call" button if logged in
+            // We will handle join after auth check
             console.log("Incoming call room:", roomID);
         }
     });
@@ -663,6 +662,13 @@
         loadGlobalData();
         fillSettings();
         switchTab('contacts');
+
+        // Auto-join call if link was clicked
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomID = urlParams.get('roomID');
+        if(roomID && currentUser) {
+             joinVideoCall(roomID);
+        }
     }
 
     // --- ZEGO CLOUD VIDEO CALLS ---
@@ -671,10 +677,9 @@
         
         // 1. Generate unique Room ID based on Chat ID
         const roomID = "room_" + activeChatId + "_" + Date.now();
-        const roomLink = window.location.protocol + "//" + window.location.host + window.location.pathname + "?roomID=" + roomID;
-
+        
         // 2. Send Message to Chat
-        sendMessage(`📞 <b>Входящий звонок</b><br><button style='margin-top:5px; background:#30D158; color:white; padding:5px 10px; border-radius:10px;' onclick='joinVideoCall("${roomID}")'>Присоединиться</button>`, true);
+        sendMessage(`📞 <b>Входящий звонок</b><br><button style='margin-top:5px; background:#30D158; color:white; padding:5px 10px; border-radius:10px; border:none; cursor:pointer;' onclick='joinVideoCall("${roomID}")'>Присоединиться</button>`, true);
 
         // 3. Join Myself
         joinVideoCall(roomID);
@@ -684,13 +689,17 @@
         const container = document.getElementById('video-call-container');
         container.style.display = 'block';
 
+        // Sanitize User ID for Zego (Must be alphanumeric)
+        const cleanUserID = currentUser.id.replace(/[^a-zA-Z0-9]/g, ""); 
+        const userName = currentUser.email.split('@')[0];
+
         // Generate Token
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
             ZEGO_APP_ID, 
             ZEGO_SERVER_SECRET, 
             roomID, 
-            currentUser.id, 
-            currentUser.email
+            cleanUserID, 
+            userName
         );
 
         const zp = ZegoUIKitPrebuilt.create(kitToken);
@@ -701,7 +710,9 @@
             showPreJoinView: false,
             onLeaveRoom: () => {
                 container.style.display = 'none';
-                window.location.reload(); // Reload to clear Zego state
+                // Clear URL param if exists
+                window.history.replaceState({}, document.title, window.location.pathname);
+                window.location.reload(); 
             }
         });
     }
@@ -999,7 +1010,7 @@
         activeSub = supabase.channel('chat_' + filterId)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: table, filter: `${filterCol}=eq.${filterId}` }, payload => {
                 if(userSettings.sound && payload.new.sender !== currentUser.email) {
-                    // Play sound here if needed
+                    console.log("Beep"); // Placeholder for sound
                 }
                 renderMessage(payload.new);
                 scrollToBottom();
@@ -1022,7 +1033,7 @@
             div.classList.add('call-msg');
             // Make sure HTML buttons work
             div.innerHTML = msg.text;
-            // Add delete button
+            // Add delete button if owner
             if(isMe) {
                  div.innerHTML += `<div class="delete-msg-btn" onclick="deleteMessage(${msg.id})">✕</div>`;
             }
