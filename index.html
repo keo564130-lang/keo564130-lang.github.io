@@ -11,22 +11,37 @@
     <style>
         :root {
             --font-main: 'Inter', sans-serif;
+            --font-size-base: 16px; /* Dynamic */
             --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             --bg-glass: rgba(20, 20, 20, 0.6);
             --bg-panel: rgba(0, 0, 0, 0.4);
-            --bg-island: rgba(20, 20, 20, 0.85);
             --border-glass: rgba(255, 255, 255, 0.15);
             --text-primary: #ffffff;
             --text-secondary: rgba(255, 255, 255, 0.6);
             --accent-blue: #0A84FF;
             --danger: #FF3B30;
             --island-radius: 40px;
+            
+            --msg-padding: 12px 18px; /* Dynamic for Compact Mode */
+            --blur-strength: 40px; /* Dynamic */
         }
 
+        /* Wallpapers */
         [data-bg="midnight"] { --bg-gradient: linear-gradient(to bottom, #000000, #1a1a1a); }
         [data-bg="cosmos"]   { --bg-gradient: linear-gradient(135deg, #2b1055, #7597de); }
         [data-bg="aurora"]   { --bg-gradient: linear-gradient(135deg, #000428, #004e92); }
         [data-bg="fire"]     { --bg-gradient: linear-gradient(135deg, #480048, #C04848); }
+        
+        /* Font Sizes */
+        body.font-small { --font-size-base: 13px; }
+        body.font-large { --font-size-base: 19px; }
+        
+        /* Compact Mode */
+        body.compact-mode { --msg-padding: 6px 12px; }
+
+        /* Blur Levels */
+        body.blur-low { --blur-strength: 10px; }
+        body.blur-none { --blur-strength: 0px; }
 
         * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
         
@@ -41,6 +56,7 @@
             justify-content: center;
             overflow: hidden;
             transition: background 0.5s ease;
+            font-size: var(--font-size-base);
         }
 
         @keyframes gradientBG {
@@ -49,24 +65,24 @@
             100% { background-position: 0% 50%; }
         }
 
-        button { cursor: pointer; border: none; font-family: var(--font-main); }
-        input, textarea { font-family: var(--font-main); }
+        button { cursor: pointer; border: none; font-family: var(--font-main); font-size: inherit; }
+        input, textarea, select { font-family: var(--font-main); font-size: inherit; }
 
         /* AUTH */
         #auth-screen {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 90%; max-width: 340px;
-            padding: 40px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(40px);
+            padding: 40px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(var(--blur-strength));
             border-radius: 30px; border: 1px solid var(--border-glass);
             text-align: center; z-index: 2000; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
-        .auth-title { font-size: 32px; font-weight: 800; margin-bottom: 30px; letter-spacing: -1px; }
+        .auth-title { font-size: 2em; font-weight: 800; margin-bottom: 30px; letter-spacing: -1px; }
         .auth-input {
             width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass);
-            padding: 15px; border-radius: 16px; color: white; margin-bottom: 12px; font-size: 16px;
+            padding: 15px; border-radius: 16px; color: white; margin-bottom: 12px;
         }
         .btn-main {
-            width: 100%; padding: 16px; border-radius: 16px; font-weight: 600; font-size: 16px;
+            width: 100%; padding: 16px; border-radius: 16px; font-weight: 600;
             background: #ffffff; color: black; margin-bottom: 10px; transition: 0.2s;
         }
         .btn-main:active { transform: scale(0.97); opacity: 0.9; }
@@ -86,7 +102,7 @@
 
         .nav-icon {
             width: 48px; height: 48px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
-            color: var(--text-secondary); margin-bottom: 20px; transition: 0.2s; cursor: pointer; font-size: 22px;
+            color: var(--text-secondary); margin-bottom: 20px; transition: 0.2s; cursor: pointer; font-size: 1.4em;
         }
         .nav-icon:hover, .nav-icon.active { background: rgba(255,255,255,0.15); color: white; }
         
@@ -105,17 +121,17 @@
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
         
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .header-title { font-size: 28px; font-weight: 800; }
+        .header-title { font-size: 1.8em; font-weight: 800; }
         .settings-btn-top {
             background: rgba(255,255,255,0.1); width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;
+            display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;
         }
 
         .search-wrapper {
             background: rgba(0,0,0,0.3); padding: 12px 15px; border-radius: 18px;
             margin-bottom: 20px; display: flex; align-items: center; border: 1px solid var(--border-glass);
         }
-        .search-input { background: transparent; border: none; color: white; width: 100%; font-size: 15px; }
+        .search-input { background: transparent; border: none; color: white; width: 100%; }
 
         .chat-area {
             flex: 1; display: flex; flex-direction: column; position: relative;
@@ -136,10 +152,9 @@
         }
 
         .msg {
-            max-width: 75%; padding: 12px 18px; border-radius: 20px; font-size: 16px; line-height: 1.4;
+            max-width: 75%; padding: var(--msg-padding); border-radius: 20px; line-height: 1.4;
             position: relative; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            backdrop-filter: blur(5px);
-            word-break: break-word;
+            backdrop-filter: blur(5px); word-break: break-word;
         }
         .msg.me {
             align-self: flex-end; background: var(--accent-blue); color: white;
@@ -149,7 +164,7 @@
             align-self: flex-start; background: rgba(255,255,255,0.1); color: white;
             border-bottom-left-radius: 4px; border: 1px solid var(--border-glass);
         }
-        .msg-sender-name { font-size: 10px; opacity: 0.7; margin-bottom: 3px; display: block; color: var(--accent-blue); font-weight: 700; }
+        .msg-sender-name { font-size: 0.8em; opacity: 0.7; margin-bottom: 3px; display: block; color: var(--accent-blue); font-weight: 700; }
         
         .delete-msg-btn {
             position: absolute; top: -8px; right: -8px; width: 22px; height: 22px;
@@ -166,11 +181,11 @@
         }
         .msg-input-box {
             flex: 1; background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass);
-            border-radius: 30px; padding: 14px 20px; color: white; font-size: 16px; backdrop-filter: blur(10px);
+            border-radius: 30px; padding: 14px 20px; color: white; backdrop-filter: blur(10px);
         }
         .send-btn {
             width: 46px; height: 46px; border-radius: 50%; background: var(--accent-blue); color: white;
-            display: flex; align-items: center; justify-content: center; font-size: 20px;
+            display: flex; align-items: center; justify-content: center; font-size: 1.2em;
             box-shadow: 0 0 20px rgba(10, 132, 255, 0.4);
         }
 
@@ -181,7 +196,7 @@
             z-index: 3000; display: none; align-items: center; justify-content: center;
         }
         .modal-box {
-            background: rgba(30,30,30,0.85); width: 90%; max-width: 400px; padding: 30px;
+            background: rgba(30,30,30,0.85); width: 90%; max-width: 450px; padding: 30px;
             border-radius: 30px; border: 1px solid var(--border-glass);
             box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto;
             animation: popIn 0.3s ease;
@@ -190,11 +205,11 @@
         .bio-area {
             width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-glass);
             border-radius: 16px; color: white; padding: 15px; margin-top: 5px; margin-bottom: 20px;
-            resize: none; height: 80px; font-size: 14px;
+            resize: none; height: 80px;
         }
         .user-detail-row { margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 16px; }
-        .user-detail-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; display:block;}
-        .user-detail-value { font-size: 16px; font-weight: 500; }
+        .user-detail-label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 5px; display:block;}
+        .user-detail-value { font-weight: 500; }
 
         .bg-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .bg-option { height: 50px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
@@ -231,35 +246,29 @@
         .island-item.active { color: white; transform: translateY(-2px); }
         .island-item.active .island-icon { text-shadow: 0 0 15px rgba(255,255,255,0.6); }
 
-        /* Type Selector in Modal */
-        .type-selector {
-            display: flex; gap: 10px; margin-bottom: 20px;
-        }
-        .type-option {
-            flex: 1; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05);
-            border: 1px solid transparent; cursor: pointer; text-align: center; font-size: 14px;
-            transition: 0.2s;
-        }
-        .type-option.active {
-            background: var(--accent-blue); color: white;
-        }
+        /* SETTINGS UI */
+        .type-selector { display: flex; gap: 10px; margin-bottom: 20px; }
+        .type-option { flex: 1; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid transparent; cursor: pointer; text-align: center; font-size: 0.9em; transition: 0.2s; }
+        .type-option.active { background: var(--accent-blue); color: white; }
         
-        /* SETTINGS CHECKBOXES */
         .settings-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .setting-item { 
-            display: flex; align-items: center; justify-content: space-between; 
-            background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; 
-        }
-        .setting-label { font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .setting-desc { font-size: 11px; opacity: 0.6; margin-left: 28px; margin-top: 2px;}
+        .setting-item { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; }
+        .setting-label { font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
+        .setting-desc { font-size: 0.7em; opacity: 0.6; margin-left: 0; margin-top: 2px;}
         
-        /* CUSTOM CHECKBOX */
         .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent-blue); }
         input:checked + .slider:before { transform: translateX(16px); }
+
+        .select-box {
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass);
+            padding: 10px; border-radius: 12px; color: white; margin-top: 5px; cursor: pointer;
+        }
+
+        .settings-section-title { font-size: 0.8em; text-transform: uppercase; color: var(--accent-blue); margin-top: 15px; margin-bottom: 8px; font-weight: 700; letter-spacing: 1px; }
 
         /* MOBILE */
         @media (max-width: 900px) {
@@ -362,26 +371,75 @@
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="font-size:22px;">Мой профиль</h2>
+                <h2 style="font-size:22px;">Настройки</h2>
                 <button onclick="closeModal('settings-modal')" style="background:transparent; color:rgba(255,255,255,0.5); font-size:24px;">✕</button>
             </div>
-            <div style="text-align:center; margin-bottom:25px;">
-                <img id="avatar-preview" src="" style="width:90px; height:90px; border-radius:50%; object-fit:cover; border: 3px solid rgba(255,255,255,0.2); display:block; margin:0 auto 10px;">
-                <label for="avatar-file" style="color:var(--accent-blue); font-size:14px; font-weight:600; cursor:pointer;">Изменить фото</label>
+
+            <div class="settings-section-title">👤 Профиль</div>
+            
+            <div style="text-align:center; margin-bottom:15px;">
+                <img id="avatar-preview" src="" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border: 3px solid rgba(255,255,255,0.2); display:block; margin:0 auto 10px;">
+                <label for="avatar-file" style="color:var(--accent-blue); font-size:12px; font-weight:600; cursor:pointer;">[1] Изменить фото</label>
                 <input type="file" id="avatar-file" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
             </div>
-            <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:5px;">Имя</label>
-            <input type="text" id="edit-name" class="auth-input" placeholder="Ваше имя" style="background:rgba(0,0,0,0.4);">
-            <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:5px;">О себе</label>
-            <textarea id="edit-description" class="bio-area" placeholder="Напишите пару слов о себе..."></textarea>
-            <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:10px; margin-top:15px;">Обои</label>
+            
+            <div class="settings-list">
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:3px;">[2] Имя</label>
+                    <input type="text" id="edit-name" class="auth-input" placeholder="Ваше имя" style="background:rgba(0,0,0,0.4); padding:8px; font-size:14px;">
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:3px;">[3] О себе</label>
+                    <textarea id="edit-description" class="bio-area" placeholder="Ваше био..." style="height:60px; padding:8px;"></textarea>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">[4] Показывать "В сети"</div>
+                    <label class="switch"><input type="checkbox" id="set-show-online"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">[5] Не беспокоить (без уведомлений)</div>
+                    <label class="switch"><input type="checkbox" id="set-dnd"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <div class="settings-section-title">🎨 Интерфейс</div>
+
+            <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:5px;">[6] Обои</label>
             <div class="bg-selector">
                 <div class="bg-option bg-aurora active" onclick="setBg('aurora', this)"></div>
                 <div class="bg-option bg-cosmos" onclick="setBg('cosmos', this)"></div>
                 <div class="bg-option bg-fire" onclick="setBg('fire', this)"></div>
                 <div class="bg-option bg-midnight" onclick="setBg('midnight', this)"></div>
             </div>
-            <button class="btn-main" style="background:var(--accent-blue); color:white; margin-top:10px;" onclick="saveProfile()">Сохранить</button>
+
+            <div class="settings-list">
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:3px;">[7] Размер шрифта</label>
+                    <select id="set-font-size" class="select-box">
+                        <option value="small">Маленький</option>
+                        <option value="medium">Средний (По умолчанию)</option>
+                        <option value="large">Крупный</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px; opacity:0.6; display:block; margin-bottom:3px;">[8] Размытие (Blur)</label>
+                    <select id="set-blur" class="select-box">
+                        <option value="high">Сильное (Стекло)</option>
+                        <option value="low">Слабое</option>
+                        <option value="none">Выключить (Производительность)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">[9] Компактный режим</div>
+                    <label class="switch"><input type="checkbox" id="set-compact"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">[10] Звуковые эффекты</div>
+                    <label class="switch"><input type="checkbox" id="set-sound"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <button class="btn-main" style="background:var(--accent-blue); color:white; margin-top:10px;" onclick="saveProfile()">Сохранить настройки</button>
             <button class="btn-main" style="background:rgba(255,59,48,0.15); color:#FF3B30; margin-top:10px;" onclick="doLogout()">Выйти</button>
         </div>
     </div>
@@ -409,6 +467,8 @@
             </div>
             
             <button id="channel-settings-btn" class="btn-main" style="background:rgba(255,255,255,0.1); color:white; display:none; margin-top:10px;" onclick="openChannelSettingsModal()">⚙️ Настройки канала</button>
+            
+            <button id="delete-channel-btn" class="btn-main" style="background:rgba(255, 59, 48, 0.2); color:#FF3B30; display:none; margin-top:10px; border:1px solid #FF3B30;" onclick="deleteChannel()">🗑 Удалить канал</button>
 
             <button class="btn-main" style="background:var(--bg-panel); border:1px solid var(--border-glass); color:white; margin-top:10px;" onclick="closeModal('partner-modal')">Закрыть</button>
         </div>
@@ -429,38 +489,23 @@
             <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:10px; margin-top:15px;">Настройки прав</label>
             <div class="settings-list">
                 <div class="setting-item">
-                    <div>
-                        <div class="setting-label">📣 Только чтение</div>
-                        <div class="setting-desc">Писать может только владелец</div>
-                    </div>
+                    <div><div class="setting-label">📣 Только чтение</div></div>
                     <label class="switch"><input type="checkbox" id="new-read-only"><span class="slider"></span></label>
                 </div>
                 <div class="setting-item">
-                    <div>
-                        <div class="setting-label">🛡️ Только админ приглашает</div>
-                        <div class="setting-desc">Скрыть кнопку "+" для остальных</div>
-                    </div>
+                    <div><div class="setting-label">🛡️ Только админ приглашает</div></div>
                     <label class="switch"><input type="checkbox" id="new-admin-invite"><span class="slider"></span></label>
                 </div>
                 <div class="setting-item">
-                    <div>
-                        <div class="setting-label">🔗 Запрет ссылок</div>
-                        <div class="setting-desc">Блокировать "http" в чате</div>
-                    </div>
+                    <div><div class="setting-label">🔗 Запрет ссылок</div></div>
                     <label class="switch"><input type="checkbox" id="new-block-links"><span class="slider"></span></label>
                 </div>
                 <div class="setting-item">
-                    <div>
-                        <div class="setting-label">👻 Скрыть участников</div>
-                        <div class="setting-desc">Обычные люди не видят список</div>
-                    </div>
+                    <div><div class="setting-label">👻 Скрыть участников</div></div>
                     <label class="switch"><input type="checkbox" id="new-hide-members"><span class="slider"></span></label>
                 </div>
                 <div class="setting-item">
-                    <div>
-                        <div class="setting-label">🧱 Запрет удаления</div>
-                        <div class="setting-desc">Нельзя удалять сообщения</div>
-                    </div>
+                    <div><div class="setting-label">🧱 Запрет удаления</div></div>
                     <label class="switch"><input type="checkbox" id="new-no-delete"><span class="slider"></span></label>
                 </div>
             </div>
@@ -528,6 +573,7 @@
     let myChannelMemberships = new Set();
     let pendingAvatar = null;
     let newChannelType = 'public';
+    let userSettings = {}; // Local cache of settings
 
     // --- STARTUP ---
     document.addEventListener("DOMContentLoaded", async () => {
@@ -561,6 +607,8 @@
 
     // --- NOTIFICATIONS ---
     function showToast(msg, isError = false) {
+        if(userSettings.dnd) return; // Setting 5: Do Not Disturb
+
         const box = document.getElementById('toast-box');
         const icon = document.getElementById('toast-icon');
         const text = document.getElementById('toast-text');
@@ -571,7 +619,7 @@
         setTimeout(() => { box.classList.remove('visible'); }, 3000);
     }
 
-    // --- WALLPAPER ---
+    // --- WALLPAPER & SITE SETTINGS ---
     function setBg(bgName, el) {
         document.body.setAttribute('data-bg', bgName);
         localStorage.setItem('folks_bg', bgName);
@@ -590,9 +638,38 @@
     async function fillSettings() {
         const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
         if(data) {
+            // Profile
             document.getElementById('edit-name').value = data.display_name || '';
+            document.getElementById('edit-description').value = data.bio || ''; // Setting 3
             if(data.avatar_base64) document.getElementById('avatar-preview').src = data.avatar_base64;
+            document.getElementById('set-show-online').checked = data.setting_show_online !== false; // Default true
+            document.getElementById('set-dnd').checked = data.setting_dnd === true;
+
+            // Interface
+            document.getElementById('set-font-size').value = data.setting_font_size || 'medium';
+            document.getElementById('set-compact').checked = data.setting_compact_mode === true;
+            document.getElementById('set-sound').checked = data.setting_sound_enabled !== false; // Default true
+            document.getElementById('set-blur').value = data.setting_blur_level || 'high';
+
+            // Cache
+            userSettings = {
+                dnd: data.setting_dnd === true,
+                sound: data.setting_sound_enabled !== false
+            };
+
+            applySiteSettings(data);
         }
+    }
+    
+    function applySiteSettings(data) {
+        document.body.classList.remove('font-small', 'font-large', 'compact-mode', 'blur-low', 'blur-none');
+        
+        if(data.setting_font_size === 'small') document.body.classList.add('font-small');
+        if(data.setting_font_size === 'large') document.body.classList.add('font-large');
+        if(data.setting_compact_mode) document.body.classList.add('compact-mode');
+        
+        if(data.setting_blur_level === 'low') document.body.classList.add('blur-low');
+        if(data.setting_blur_level === 'none') document.body.classList.add('blur-none');
     }
 
     async function doLogin() {
@@ -650,12 +727,16 @@
         
         if(channels) {
             allChannels = channels;
-            // If we are currently viewing a channel, refresh its meta to update settings permissions in real-time
             if(activeChatMeta && currentMode === 'channels') {
                 const updated = channels.find(c => c.id === activeChatId);
                 if(updated) {
                     activeChatMeta = updated;
-                    setupChatUI(updated.name, updated.description, null, true); // Refresh UI
+                    setupChatUI(updated.name, updated.description, null, true);
+                } else {
+                    // Channel deleted?
+                    closeChatMobile();
+                    document.getElementById('messages').innerHTML = "";
+                    activeChatId = null;
                 }
             }
             if(currentMode === 'channels') renderList();
@@ -763,7 +844,6 @@
         const addBtn = document.getElementById('add-member-btn');
         const inputBar = document.querySelector('.input-bar');
         
-        // Default state
         addBtn.style.display = 'none';
         inputBar.style.display = 'flex';
 
@@ -772,15 +852,11 @@
             avEl.style.background = 'linear-gradient(135deg, #2b1055, #7597de)';
 
             const isOwner = activeChatMeta.owner_email === currentUser.email;
-
-            // Setting 1: Only Admins Add Members
             if(activeChatMeta.setting_admin_invite) {
                  if(isOwner) addBtn.style.display = 'block';
             } else {
-                 addBtn.style.display = 'block'; // Everyone can invite
+                 addBtn.style.display = 'block'; 
             }
-
-            // Setting 2: Read Only Mode
             if(activeChatMeta.setting_read_only && !isOwner) {
                 inputBar.style.display = 'none';
             }
@@ -819,6 +895,9 @@
 
         activeSub = supabase.channel('chat_' + filterId)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: table, filter: `${filterCol}=eq.${filterId}` }, payload => {
+                if(userSettings.sound && payload.new.sender !== currentUser.email) {
+                    console.log("Beep"); // Placeholder for sound
+                }
                 renderMessage(payload.new);
                 scrollToBottom();
             })
@@ -838,15 +917,14 @@
         let canDelete = false;
         
         if(currentMode === 'channels') {
-             // Setting 5: No Delete
              const isOwner = activeChatMeta.owner_email === currentUser.email;
              if(activeChatMeta.setting_no_delete) {
-                 if(isOwner) canDelete = true; // Only owner can delete
+                 if(isOwner) canDelete = true; 
              } else {
                  if(isMe || isOwner) canDelete = true;
              }
         } else {
-            // Private chat
+            // Private chat: Allow sender to delete
             if(isMe) canDelete = true;
         }
 
@@ -868,7 +946,6 @@
         const txt = document.getElementById('msg-input').value.trim();
         if(!txt || !activeChatId) return;
 
-        // Setting 3: Block Links
         if(currentMode === 'channels') {
             const isOwner = activeChatMeta.owner_email === currentUser.email;
             if(activeChatMeta.setting_block_links && !isOwner) {
@@ -931,7 +1008,6 @@
         
         const isPrivate = newChannelType === 'private';
         
-        // Get checkboxes
         const sReadOnly = document.getElementById('new-read-only').checked;
         const sAdminInvite = document.getElementById('new-admin-invite').checked;
         const sBlockLinks = document.getElementById('new-block-links').checked;
@@ -967,11 +1043,27 @@
         closeModal('create-channel-modal');
         document.getElementById('new-channel-name').value = '';
         document.getElementById('new-channel-desc').value = '';
-        showToast("Канал создан");
+        showToast(isPrivate ? "Группа создана" : "Канал создан");
         fetchChannels();
     }
     
-    // --- EDIT SETTINGS LOGIC ---
+    // --- DELETE CHANNEL ---
+    async function deleteChannel() {
+        if(!confirm("Вы уверены? Это удалит канал навсегда.")) return;
+        
+        const { error } = await supabase.from('channels').delete().eq('id', activeChatId);
+        
+        if(error) showToast("Ошибка удаления", true);
+        else {
+             showToast("Канал удален");
+             closeModal('partner-modal');
+             closeChatMobile();
+             document.getElementById('messages').innerHTML = "";
+             activeChatId = null;
+             fetchChannels();
+        }
+    }
+
     function openChannelSettingsModal() {
         document.getElementById('edit-read-only').checked = activeChatMeta.setting_read_only;
         document.getElementById('edit-admin-invite').checked = activeChatMeta.setting_admin_invite;
@@ -1002,17 +1094,12 @@
         else {
              showToast("Настройки обновлены");
              closeModal('edit-channel-settings-modal');
-             fetchChannels(); // Refresh data
+             fetchChannels();
         }
     }
 
     // --- ADD MEMBER LOGIC ---
     function openAddMemberModal() {
-        // Check settings before opening
-        if(currentMode === 'channels') {
-            // Setting 4: Hide Members List Logic could be here, but for now we control Adding
-        }
-
         document.getElementById('add-member-modal').style.display = 'flex';
         renderAddMemberList();
     }
@@ -1073,9 +1160,27 @@
     }
     
     async function saveProfile() {
-        const updates = { display_name: document.getElementById('edit-name').value };
+        const updates = { 
+            display_name: document.getElementById('edit-name').value,
+            bio: document.getElementById('edit-description').value, // 3
+            setting_show_online: document.getElementById('set-show-online').checked, // 4
+            setting_dnd: document.getElementById('set-dnd').checked, // 5
+            
+            setting_font_size: document.getElementById('set-font-size').value, // 7
+            setting_compact_mode: document.getElementById('set-compact').checked, // 9
+            setting_sound_enabled: document.getElementById('set-sound').checked, // 10
+            setting_blur_level: document.getElementById('set-blur').value // 8
+        };
         if(pendingAvatar) updates.avatar_base64 = pendingAvatar;
+        
         await supabase.from('profiles').update(updates).eq('id', currentUser.id);
+        
+        userSettings = {
+            dnd: updates.setting_dnd,
+            sound: updates.setting_sound_enabled
+        };
+        applySiteSettings(updates);
+        
         closeModal('settings-modal');
         showToast("Профиль сохранен");
         fetchUsers();
@@ -1087,7 +1192,7 @@
         
         const title = currentMode === 'channels' ? activeChatMeta.name : (activeChatMeta.display_name || activeChatMeta.email);
         const sub = currentMode === 'channels' ? activeChatMeta.owner_email : activeChatMeta.email;
-        const desc = activeChatMeta.description || "Нет описания";
+        const desc = activeChatMeta.description || (activeChatMeta.bio || "Нет описания");
         
         document.getElementById('partner-name-display').innerText = title;
         document.getElementById('partner-email-display').innerText = sub;
@@ -1095,10 +1200,14 @@
         
         // Handle Settings Button Visibility
         const settingsBtn = document.getElementById('channel-settings-btn');
+        const deleteBtn = document.getElementById('delete-channel-btn');
+        
         if(currentMode === 'channels' && activeChatMeta.owner_email === currentUser.email) {
             settingsBtn.style.display = 'block';
+            deleteBtn.style.display = 'block';
         } else {
             settingsBtn.style.display = 'none';
+            deleteBtn.style.display = 'none';
         }
 
         const av = document.getElementById('partner-avatar-display');
