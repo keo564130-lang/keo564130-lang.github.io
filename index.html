@@ -244,6 +244,23 @@
             background: var(--accent-blue); color: white;
         }
         
+        /* SETTINGS CHECKBOXES */
+        .settings-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .setting-item { 
+            display: flex; align-items: center; justify-content: space-between; 
+            background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; 
+        }
+        .setting-label { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .setting-desc { font-size: 11px; opacity: 0.6; margin-left: 28px; margin-top: 2px;}
+        
+        /* CUSTOM CHECKBOX */
+        .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
         /* MOBILE */
         @media (max-width: 900px) {
             .sidebar-left { display: none; }
@@ -390,7 +407,10 @@
                 <span class="user-detail-label">Описание</span>
                 <div class="user-detail-value" id="partner-bio-display" style="font-style:italic; opacity:0.9; line-height:1.4;">Нет информации</div>
             </div>
-            <button class="btn-main" style="background:var(--bg-panel); border:1px solid var(--border-glass); color:white;" onclick="closeModal('partner-modal')">Закрыть</button>
+            
+            <button id="channel-settings-btn" class="btn-main" style="background:rgba(255,255,255,0.1); color:white; display:none; margin-top:10px;" onclick="openChannelSettingsModal()">⚙️ Настройки канала</button>
+
+            <button class="btn-main" style="background:var(--bg-panel); border:1px solid var(--border-glass); color:white; margin-top:10px;" onclick="closeModal('partner-modal')">Закрыть</button>
         </div>
     </div>
 
@@ -406,8 +426,78 @@
                 <div class="type-option" id="type-private" onclick="setChannelType('private')">🔒 Закрытая группа</div>
             </div>
 
+            <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:10px; margin-top:15px;">Настройки прав</label>
+            <div class="settings-list">
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">📣 Только чтение</div>
+                        <div class="setting-desc">Писать может только владелец</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="new-read-only"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">🛡️ Только админ приглашает</div>
+                        <div class="setting-desc">Скрыть кнопку "+" для остальных</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="new-admin-invite"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">🔗 Запрет ссылок</div>
+                        <div class="setting-desc">Блокировать "http" в чате</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="new-block-links"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">👻 Скрыть участников</div>
+                        <div class="setting-desc">Обычные люди не видят список</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="new-hide-members"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">🧱 Запрет удаления</div>
+                        <div class="setting-desc">Нельзя удалять сообщения</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="new-no-delete"><span class="slider"></span></label>
+                </div>
+            </div>
+
             <button class="btn-main" style="background:var(--accent-blue); color:white;" onclick="createChannel()">Создать</button>
             <button class="btn-main" style="background:transparent; color:white; border:1px solid rgba(255,255,255,0.2);" onclick="closeModal('create-channel-modal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="edit-channel-settings-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 style="font-size:22px; margin-bottom:20px;">Настройки канала</h2>
+            
+            <div class="settings-list">
+                <div class="setting-item">
+                    <div class="setting-label">📣 Только чтение</div>
+                    <label class="switch"><input type="checkbox" id="edit-read-only"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">🛡️ Только админ приглашает</div>
+                    <label class="switch"><input type="checkbox" id="edit-admin-invite"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">🔗 Запрет ссылок</div>
+                    <label class="switch"><input type="checkbox" id="edit-block-links"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">👻 Скрыть участников</div>
+                    <label class="switch"><input type="checkbox" id="edit-hide-members"><span class="slider"></span></label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">🧱 Запрет удаления</div>
+                    <label class="switch"><input type="checkbox" id="edit-no-delete"><span class="slider"></span></label>
+                </div>
+            </div>
+            <button class="btn-main" style="background:var(--accent-blue); color:white;" onclick="saveChannelSettings()">Сохранить</button>
+            <button class="btn-main" style="background:transparent; color:white;" onclick="closeModal('edit-channel-settings-modal')">Отмена</button>
         </div>
     </div>
 
@@ -437,7 +527,7 @@
     let allChannels = [];
     let myChannelMemberships = new Set();
     let pendingAvatar = null;
-    let newChannelType = 'public'; // 'public' or 'private'
+    let newChannelType = 'public';
 
     // --- STARTUP ---
     document.addEventListener("DOMContentLoaded", async () => {
@@ -526,7 +616,7 @@
         supabase.channel('global_updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchUsers)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, fetchChannels)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_members' }, fetchChannels) // Listen for membership changes
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_members' }, fetchChannels)
             .subscribe();
         
         fetchUsers();
@@ -548,22 +638,26 @@
                 });
             }
             myChats = allUsers.filter(u => partners.has(u.email));
-            
             if(currentMode === 'contacts') renderList();
         }
     }
 
     async function fetchChannels() {
-        // 1. Fetch All Channels
         const { data: channels } = await supabase.from('channels').select('*').order('created_at', {ascending: false});
-        
-        // 2. Fetch My Memberships
         const { data: members } = await supabase.from('channel_members').select('channel_id').eq('user_email', currentUser.email);
         
         myChannelMemberships = new Set(members ? members.map(m => m.channel_id) : []);
         
         if(channels) {
             allChannels = channels;
+            // If we are currently viewing a channel, refresh its meta to update settings permissions in real-time
+            if(activeChatMeta && currentMode === 'channels') {
+                const updated = channels.find(c => c.id === activeChatId);
+                if(updated) {
+                    activeChatMeta = updated;
+                    setupChatUI(updated.name, updated.description, null, true); // Refresh UI
+                }
+            }
             if(currentMode === 'channels') renderList();
         }
     }
@@ -600,14 +694,11 @@
         if(currentMode === 'contacts') {
             items = (search === '') ? myChats : allUsers.filter(u => (u.display_name||u.email).toLowerCase().includes(search));
         } else {
-            // Filter Channels:
-            // Show if: Name matches search AND (Is Public OR I am a Member OR I am Owner)
             items = allChannels.filter(c => {
                 const matchesSearch = c.name.toLowerCase().includes(search);
                 const isMember = myChannelMemberships.has(c.id);
                 const isOwner = c.owner_email === currentUser.email;
                 const isPublic = !c.is_private;
-                
                 return matchesSearch && (isPublic || isMember || isOwner);
             });
         }
@@ -669,13 +760,31 @@
         document.getElementById('current-chat-name').innerText = name;
         document.getElementById('current-chat-desc').innerText = desc;
         const avEl = document.getElementById('current-avatar');
+        const addBtn = document.getElementById('add-member-btn');
+        const inputBar = document.querySelector('.input-bar');
         
-        // Показать/Скрыть кнопку добавления участника
-        document.getElementById('add-member-btn').style.display = isChannel ? 'block' : 'none';
+        // Default state
+        addBtn.style.display = 'none';
+        inputBar.style.display = 'flex';
 
         if(isChannel) {
             avEl.innerHTML = activeChatMeta.is_private ? '🔒' : '📢';
             avEl.style.background = 'linear-gradient(135deg, #2b1055, #7597de)';
+
+            const isOwner = activeChatMeta.owner_email === currentUser.email;
+
+            // Setting 1: Only Admins Add Members
+            if(activeChatMeta.setting_admin_invite) {
+                 if(isOwner) addBtn.style.display = 'block';
+            } else {
+                 addBtn.style.display = 'block'; // Everyone can invite
+            }
+
+            // Setting 2: Read Only Mode
+            if(activeChatMeta.setting_read_only && !isOwner) {
+                inputBar.style.display = 'none';
+            }
+
         } else {
             avEl.style.background = 'rgba(255,255,255,0.1)';
             avEl.innerHTML = avatar ? `<img src="${avatar}">` : name[0];
@@ -727,8 +836,19 @@
         div.className = `msg ${isMe ? 'me' : 'them'}`;
         
         let canDelete = false;
-        if(isMe) canDelete = true; 
-        if(currentMode === 'channels' && activeChatMeta.owner_email === currentUser.email) canDelete = true; 
+        
+        if(currentMode === 'channels') {
+             // Setting 5: No Delete
+             const isOwner = activeChatMeta.owner_email === currentUser.email;
+             if(activeChatMeta.setting_no_delete) {
+                 if(isOwner) canDelete = true; // Only owner can delete
+             } else {
+                 if(isMe || isOwner) canDelete = true;
+             }
+        } else {
+            // Private chat
+            if(isMe) canDelete = true;
+        }
 
         let senderName = '';
         if(currentMode === 'channels' && !isMe) {
@@ -747,6 +867,17 @@
     async function sendMessage() {
         const txt = document.getElementById('msg-input').value.trim();
         if(!txt || !activeChatId) return;
+
+        // Setting 3: Block Links
+        if(currentMode === 'channels') {
+            const isOwner = activeChatMeta.owner_email === currentUser.email;
+            if(activeChatMeta.setting_block_links && !isOwner) {
+                if(txt.includes('http') || txt.includes('www') || txt.includes('.com')) {
+                    showToast("Ссылки запрещены в этой группе!", true);
+                    return;
+                }
+            }
+        }
 
         const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
         const col = currentMode === 'contacts' ? 'chat_id' : 'channel_id';
@@ -784,7 +915,7 @@
     // --- MODALS ---
     function openCreateChannel() { 
         document.getElementById('create-channel-modal').style.display = 'flex';
-        setChannelType('public'); // default
+        setChannelType('public'); 
     }
     
     function setChannelType(type) {
@@ -799,13 +930,24 @@
         if(!name) return;
         
         const isPrivate = newChannelType === 'private';
+        
+        // Get checkboxes
+        const sReadOnly = document.getElementById('new-read-only').checked;
+        const sAdminInvite = document.getElementById('new-admin-invite').checked;
+        const sBlockLinks = document.getElementById('new-block-links').checked;
+        const sHideMembers = document.getElementById('new-hide-members').checked;
+        const sNoDelete = document.getElementById('new-no-delete').checked;
 
-        // 1. Create Channel
         const { data, error } = await supabase.from('channels').insert([{
             name: name,
             description: desc,
             owner_email: currentUser.email,
-            is_private: isPrivate, // <--- New Field
+            is_private: isPrivate,
+            setting_read_only: sReadOnly,
+            setting_admin_invite: sAdminInvite,
+            setting_block_links: sBlockLinks,
+            setting_hide_members: sHideMembers,
+            setting_no_delete: sNoDelete,
             created_at: Date.now()
         }]).select();
 
@@ -814,11 +956,9 @@
             return;
         }
         
-        // 2. Add Owner to Members (Vital for private groups)
         if(data && data[0]) {
-            const newChannelId = data[0].id;
             await supabase.from('channel_members').insert([{
-                channel_id: newChannelId,
+                channel_id: data[0].id,
                 user_email: currentUser.email,
                 joined_at: Date.now()
             }]);
@@ -827,12 +967,52 @@
         closeModal('create-channel-modal');
         document.getElementById('new-channel-name').value = '';
         document.getElementById('new-channel-desc').value = '';
-        showToast(isPrivate ? "Группа создана" : "Канал создан");
+        showToast("Канал создан");
         fetchChannels();
+    }
+    
+    // --- EDIT SETTINGS LOGIC ---
+    function openChannelSettingsModal() {
+        document.getElementById('edit-read-only').checked = activeChatMeta.setting_read_only;
+        document.getElementById('edit-admin-invite').checked = activeChatMeta.setting_admin_invite;
+        document.getElementById('edit-block-links').checked = activeChatMeta.setting_block_links;
+        document.getElementById('edit-hide-members').checked = activeChatMeta.setting_hide_members;
+        document.getElementById('edit-no-delete').checked = activeChatMeta.setting_no_delete;
+        
+        closeModal('partner-modal');
+        document.getElementById('edit-channel-settings-modal').style.display = 'flex';
+    }
+    
+    async function saveChannelSettings() {
+        const sReadOnly = document.getElementById('edit-read-only').checked;
+        const sAdminInvite = document.getElementById('edit-admin-invite').checked;
+        const sBlockLinks = document.getElementById('edit-block-links').checked;
+        const sHideMembers = document.getElementById('edit-hide-members').checked;
+        const sNoDelete = document.getElementById('edit-no-delete').checked;
+        
+        const { error } = await supabase.from('channels').update({
+            setting_read_only: sReadOnly,
+            setting_admin_invite: sAdminInvite,
+            setting_block_links: sBlockLinks,
+            setting_hide_members: sHideMembers,
+            setting_no_delete: sNoDelete
+        }).eq('id', activeChatId);
+        
+        if(error) showToast("Ошибка сохранения", true);
+        else {
+             showToast("Настройки обновлены");
+             closeModal('edit-channel-settings-modal');
+             fetchChannels(); // Refresh data
+        }
     }
 
     // --- ADD MEMBER LOGIC ---
     function openAddMemberModal() {
+        // Check settings before opening
+        if(currentMode === 'channels') {
+            // Setting 4: Hide Members List Logic could be here, but for now we control Adding
+        }
+
         document.getElementById('add-member-modal').style.display = 'flex';
         renderAddMemberList();
     }
@@ -841,7 +1021,6 @@
         const list = document.getElementById('add-member-list');
         list.innerHTML = '';
         const term = document.getElementById('member-search').value.toLowerCase();
-        
         const users = allUsers.filter(u => (u.display_name || u.email).toLowerCase().includes(term));
         
         users.forEach(u => {
@@ -849,7 +1028,6 @@
             div.className = 'user-card';
             const name = u.display_name || u.email.split('@')[0];
             const img = u.avatar_base64 ? `<img src="${u.avatar_base64}">` : name[0].toUpperCase();
-            
             div.onclick = () => addMemberToChannel(u);
             div.innerHTML = `
                 <div class="avatar">${img}</div>
@@ -864,14 +1042,13 @@
     }
 
     async function addMemberToChannel(user) {
-        // Add to channel_members table
         const { error } = await supabase.from('channel_members').insert([{
             channel_id: activeChatId,
             user_email: user.email,
             joined_at: Date.now()
         }]);
 
-        if(error) showToast("Ошибка добавления (или уже есть)", true);
+        if(error) showToast("Ошибка (или уже есть)", true);
         else {
             showToast(`${user.display_name || user.email} добавлен!`);
             closeModal('add-member-modal');
@@ -916,6 +1093,14 @@
         document.getElementById('partner-email-display').innerText = sub;
         document.getElementById('partner-bio-display').innerText = desc;
         
+        // Handle Settings Button Visibility
+        const settingsBtn = document.getElementById('channel-settings-btn');
+        if(currentMode === 'channels' && activeChatMeta.owner_email === currentUser.email) {
+            settingsBtn.style.display = 'block';
+        } else {
+            settingsBtn.style.display = 'none';
+        }
+
         const av = document.getElementById('partner-avatar-display');
         av.innerHTML = "";
         if(currentMode === 'channels') {
