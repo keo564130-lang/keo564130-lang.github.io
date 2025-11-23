@@ -230,6 +230,19 @@
         .island-label { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; position: relative; z-index: 2; }
         .island-item.active { color: white; transform: translateY(-2px); }
         .island-item.active .island-icon { text-shadow: 0 0 15px rgba(255,255,255,0.6); }
+
+        /* Type Selector in Modal */
+        .type-selector {
+            display: flex; gap: 10px; margin-bottom: 20px;
+        }
+        .type-option {
+            flex: 1; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05);
+            border: 1px solid transparent; cursor: pointer; text-align: center; font-size: 14px;
+            transition: 0.2s;
+        }
+        .type-option.active {
+            background: var(--accent-blue); color: white;
+        }
         
         /* MOBILE */
         @media (max-width: 900px) {
@@ -386,6 +399,13 @@
             <h2 style="font-size:22px; margin-bottom:20px;">Новый канал</h2>
             <input type="text" id="new-channel-name" class="auth-input" placeholder="Название канала">
             <textarea id="new-channel-desc" class="bio-area" placeholder="Описание канала..."></textarea>
+            
+            <label style="font-size:12px; opacity:0.6; display:block; margin-bottom:10px;">Тип сообщества</label>
+            <div class="type-selector">
+                <div class="type-option active" id="type-public" onclick="setChannelType('public')">📢 Публичный</div>
+                <div class="type-option" id="type-private" onclick="setChannelType('private')">🔒 Закрытая группа</div>
+            </div>
+
             <button class="btn-main" style="background:var(--accent-blue); color:white;" onclick="createChannel()">Создать</button>
             <button class="btn-main" style="background:transparent; color:white; border:1px solid rgba(255,255,255,0.2);" onclick="closeModal('create-channel-modal')">Отмена</button>
         </div>
@@ -415,7 +435,9 @@
     let allUsers = [];
     let myChats = [];
     let allChannels = [];
+    let myChannelMemberships = new Set();
     let pendingAvatar = null;
+    let newChannelType = 'public'; // 'public' or 'private'
 
     // --- STARTUP ---
     document.addEventListener("DOMContentLoaded", async () => {
@@ -504,6 +526,7 @@
         supabase.channel('global_updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchUsers)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, fetchChannels)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_members' }, fetchChannels) // Listen for membership changes
             .subscribe();
         
         fetchUsers();
@@ -531,9 +554,16 @@
     }
 
     async function fetchChannels() {
-        const { data } = await supabase.from('channels').select('*').order('created_at', {ascending: false});
-        if(data) {
-            allChannels = data;
+        // 1. Fetch All Channels
+        const { data: channels } = await supabase.from('channels').select('*').order('created_at', {ascending: false});
+        
+        // 2. Fetch My Memberships
+        const { data: members } = await supabase.from('channel_members').select('channel_id').eq('user_email', currentUser.email);
+        
+        myChannelMemberships = new Set(members ? members.map(m => m.channel_id) : []);
+        
+        if(channels) {
+            allChannels = channels;
             if(currentMode === 'channels') renderList();
         }
     }
@@ -570,7 +600,16 @@
         if(currentMode === 'contacts') {
             items = (search === '') ? myChats : allUsers.filter(u => (u.display_name||u.email).toLowerCase().includes(search));
         } else {
-            items = allChannels.filter(c => c.name.toLowerCase().includes(search));
+            // Filter Channels:
+            // Show if: Name matches search AND (Is Public OR I am a Member OR I am Owner)
+            items = allChannels.filter(c => {
+                const matchesSearch = c.name.toLowerCase().includes(search);
+                const isMember = myChannelMemberships.has(c.id);
+                const isOwner = c.owner_email === currentUser.email;
+                const isPublic = !c.is_private;
+                
+                return matchesSearch && (isPublic || isMember || isOwner);
+            });
         }
 
         if(items.length === 0) {
@@ -591,7 +630,9 @@
             } else {
                 title = item.name;
                 sub = item.description || 'Нет описания';
-                imgHtml = '📢'; 
+                const isPrivate = item.is_private;
+                const icon = isPrivate ? '🔒' : '📢';
+                imgHtml = icon;
                 div.onclick = () => openChannel(item);
             }
 
@@ -619,7 +660,8 @@
     async function openChannel(channel) {
         activeChatMeta = channel;
         activeChatId = channel.id; 
-        setupChatUI(channel.name, "Канал • " + (channel.description || ""), null, true);
+        const type = channel.is_private ? "Закрытая группа" : "Публичный канал";
+        setupChatUI(channel.name, type + " • " + (channel.description || ""), null, true);
         loadMessages('channel_messages', activeChatId);
     }
 
@@ -632,7 +674,7 @@
         document.getElementById('add-member-btn').style.display = isChannel ? 'block' : 'none';
 
         if(isChannel) {
-            avEl.innerHTML = '📢';
+            avEl.innerHTML = activeChatMeta.is_private ? '🔒' : '📢';
             avEl.style.background = 'linear-gradient(135deg, #2b1055, #7597de)';
         } else {
             avEl.style.background = 'rgba(255,255,255,0.1)';
@@ -740,26 +782,53 @@
     }
 
     // --- MODALS ---
-    function openCreateChannel() { document.getElementById('create-channel-modal').style.display = 'flex'; }
+    function openCreateChannel() { 
+        document.getElementById('create-channel-modal').style.display = 'flex';
+        setChannelType('public'); // default
+    }
+    
+    function setChannelType(type) {
+        newChannelType = type;
+        document.querySelectorAll('.type-option').forEach(el => el.classList.remove('active'));
+        document.getElementById('type-' + type).classList.add('active');
+    }
+
     async function createChannel() {
         const name = document.getElementById('new-channel-name').value;
         const desc = document.getElementById('new-channel-desc').value;
         if(!name) return;
+        
+        const isPrivate = newChannelType === 'private';
 
-        const { error } = await supabase.from('channels').insert([{
+        // 1. Create Channel
+        const { data, error } = await supabase.from('channels').insert([{
             name: name,
             description: desc,
             owner_email: currentUser.email,
+            is_private: isPrivate, // <--- New Field
             created_at: Date.now()
-        }]);
+        }]).select();
 
-        if(error) showToast(error.message, true);
-        else {
-            closeModal('create-channel-modal');
-            document.getElementById('new-channel-name').value = '';
-            document.getElementById('new-channel-desc').value = '';
-            showToast("Канал создан");
+        if(error) {
+            showToast(error.message, true);
+            return;
         }
+        
+        // 2. Add Owner to Members (Vital for private groups)
+        if(data && data[0]) {
+            const newChannelId = data[0].id;
+            await supabase.from('channel_members').insert([{
+                channel_id: newChannelId,
+                user_email: currentUser.email,
+                joined_at: Date.now()
+            }]);
+        }
+
+        closeModal('create-channel-modal');
+        document.getElementById('new-channel-name').value = '';
+        document.getElementById('new-channel-desc').value = '';
+        showToast(isPrivate ? "Группа создана" : "Канал создан");
+        fetchChannels();
     }
 
     // --- ADD MEMBER LOGIC ---
@@ -802,7 +871,7 @@
             joined_at: Date.now()
         }]);
 
-        if(error) showToast("Ошибка добавления", true);
+        if(error) showToast("Ошибка добавления (или уже есть)", true);
         else {
             showToast(`${user.display_name || user.email} добавлен!`);
             closeModal('add-member-modal');
@@ -850,7 +919,7 @@
         const av = document.getElementById('partner-avatar-display');
         av.innerHTML = "";
         if(currentMode === 'channels') {
-            av.innerText = "📢";
+            av.innerHTML = activeChatMeta.is_private ? "🔒" : "📢";
         } else {
              if(activeChatMeta.avatar_base64) av.innerHTML = `<img src="${activeChatMeta.avatar_base64}" style="width:100%;height:100%;object-fit:cover;">`;
              else av.innerText = title[0];
