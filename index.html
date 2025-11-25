@@ -379,6 +379,10 @@
     // --- ИГРОВАЯ МЕХАНИКА (ТОЛЬКО НА ХОСТЕ) ---
 
     function nextTurn() {
+        if (gameState.players.length === 0) {
+            gameState.turnIndex = 0; // Or handle as an error condition, depending on desired game flow
+            return;
+        }
         gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
         // Снимаем иммунитет у того, чей ход настал (он действовал на 1 круг)
         // Хотя по правилам иммунитет на "следующий ход". 
@@ -395,6 +399,11 @@
         const pIndex = gameState.players.findIndex(p => p.id === playerId);
         const player = gameState.players[pIndex];
         
+        if (pIndex === -1 || !player) {
+            addToLog(`Игрок с ID ${playerId} не найден.`, 'bad');
+            return;
+        }
+
         // Проверка очередности
         if (gameState.players[gameState.turnIndex].id !== playerId) return;
 
@@ -503,7 +512,12 @@
         if (isHost) {
             processAction(action, payload, myId);
         } else {
-            hostConn.send({ type: 'ACTION', action: action, payload: payload });
+            if (hostConn && hostConn.open) {
+                hostConn.send({ type: 'ACTION', action: action, payload: payload });
+            } else {
+                console.error("Attempted to send action to host, but hostConn is not open.");
+                addToLog("Соединение с хостом потеряно! Не удалось отправить действие.", 'bad');
+            }
         }
     }
 
@@ -538,6 +552,10 @@
 
         // Управление ходом
         const currentPlayer = gameState.players[gameState.turnIndex];
+        if (!currentPlayer || typeof gameState.turnIndex !== 'number' || gameState.turnIndex < 0 || gameState.turnIndex >= gameState.players.length) {
+            console.error("Invalid currentPlayer or turnIndex in updateGameUI.");
+            return;
+        }
         const isMyTurn = currentPlayer.id === myId;
         
         document.getElementById('action-panel').style.display = isMyTurn ? 'block' : 'none';
