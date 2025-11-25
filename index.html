@@ -25,8 +25,6 @@
             --island-radius: 40px;
             --msg-padding: 12px 18px;
             --blur-strength: 40px;
-            
-            /* Default BG */
             --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
         }
 
@@ -197,15 +195,18 @@
             padding: 15px 20px; padding-bottom: 110px;
             display: flex; align-items: center; gap: 10px;
             background: linear-gradient(to top, rgba(0,0,0,0.8) 20%, transparent);
+            pointer-events: none; /* Let clicks pass through empty space */
         }
         .msg-input-box {
             flex: 1; background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass);
             border-radius: 30px; padding: 14px 20px; color: white; backdrop-filter: blur(10px);
+            pointer-events: auto;
         }
         .send-btn {
             width: 46px; height: 46px; border-radius: 50%; background: var(--accent-blue); color: white;
             display: flex; align-items: center; justify-content: center; font-size: 1.2em;
             box-shadow: 0 0 20px rgba(10, 132, 255, 0.4);
+            pointer-events: auto;
         }
 
         /* --- STREAM VIDEO UI (CUSTOM) --- */
@@ -342,8 +343,7 @@
             .mobile-view-contacts .chat-area { display: none; }
             .mobile-view-chat .sidebar-right { display: none; }
             .mobile-view-chat .chat-area { display: flex; }
-            .input-bar { position: fixed; bottom: 0; width: 100%; z-index: 900; background: transparent; padding: 10px 15px 120px 15px; pointer-events: none;}
-            .msg-input-box, .send-btn { pointer-events: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.5); background: rgba(30,30,30,0.8); backdrop-filter: blur(20px); }
+            .msg-input-box, .send-btn { box-shadow: 0 5px 20px rgba(0,0,0,0.5); background: rgba(30,30,30,0.8); backdrop-filter: blur(20px); }
             .send-btn { background: var(--accent-blue); }
             
             .bg-selector { grid-template-columns: repeat(5, 1fr); }
@@ -563,8 +563,8 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhbWlodHhxbWp0ZGdzcnN3aW1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjI4OTgsImV4cCI6MjA3OTI5ODg5OH0.y8gVqk7kqfjegUkDZIbL2XeEh9E6PR5KEGjXSyzKz-E';
     
     // STREAM KEYS (ВСТАВЬ СЮДА!)
-    const STREAM_API_KEY = "h2rfmpk88f82"; // <-- Вставь API KEY
-    const STREAM_SECRET = "qh7cdafpft9cgkp3g5a98qvj3s6bfnnzubs399pur7hhrnnaecw9nsjqqmjqtbhu";   // <-- Вставь SECRET
+    const STREAM_API_KEY = "h2rfmpk88f82"; 
+    const STREAM_SECRET = "qh7cdafpft9cgkp3g5a98qvj3s6bfnnzubs399pur7hhrnnaecw9nsjqqmjqtbhu"; 
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -581,152 +581,25 @@
     let pendingAvatar = null;
     let newChannelType = 'public';
     let userSettings = {}; 
-    
-    // Stream Vars
     let streamClient = null;
     let activeCall = null;
 
-    // --- STARTUP ---
-    document.addEventListener("DOMContentLoaded", async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) initApp(session.user);
-    });
+    // --- FUNCTIONS ATTACHED TO WINDOW (TO FIX CLICK ISSUE) ---
 
-    window.supabase.auth.onAuthStateChange(async (evt, session) => {
-        if (session) { if (!currentUser || currentUser.id !== session.user.id) initApp(session.user); }
-        else { currentUser = null; document.getElementById('auth-screen').style.display = 'block'; document.getElementById('app-container').style.display = 'none'; }
-    });
-
-    async function initApp(user) {
-        currentUser = user;
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-container').style.display = 'flex';
-        try { await supabase.from('profiles').upsert({ id: currentUser.id, email: currentUser.email, last_online: Date.now() }, { onConflict: 'id' }); } catch(e) {}
-        loadGlobalData();
-        fillSettings();
-        switchTab('contacts');
+    window.doLogin = async function() {
+        const { error } = await supabase.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
+        if(error) showToast(error.message, true);
     }
 
-    // --- STREAM VIDEO LOGIC (Vanilla) ---
-    
-    // Helper to generate JWT using jsrsasign (Client-Side DEV only!)
-    function createStreamToken(userId, secret) {
-        const header = { alg: 'HS256', typ: 'JWT' };
-        const payload = { user_id: userId, role: 'user', exp: Math.floor(Date.now()/1000) + 3600 };
-        return KJUR.jws.JWS.sign("HS256", JSON.stringify(header), JSON.stringify(payload), secret);
+    window.doRegister = async function() {
+        const { error } = await supabase.auth.signUp({ email: document.getElementById('email').value, password: document.getElementById('password').value });
+        if(error) showToast(error.message, true); else { showToast("Успех! Войдите."); window.doLogin(); }
     }
 
-    async function initStreamCall() {
-        if(!activeChatId) return;
-        const callId = "call_" + activeChatId.replace(/[^a-zA-Z0-9_-]/g, "") + "_" + Date.now();
-        
-        // 1. Send Invite Message
-        const joinLink = `${window.location.origin}${window.location.pathname}?call_id=${callId}`;
-        const btnHtml = `<button style='margin-top:5px; background:#30D158; color:white; padding:5px 10px; border-radius:10px; border:none; cursor:pointer;' onclick="window.joinStreamCall('${callId}')">Присоединиться</button>`;
-        await sendMessage(`📞 <b>Звонок начат</b><br>${btnHtml}`, true);
-
-        // 2. Join
-        joinStreamCall(callId);
+    window.doLogout = async function() {
+        await supabase.auth.signOut();
+        location.reload();
     }
-
-    // Make globally available for onclick
-    window.joinStreamCall = async function(callId) {
-        document.getElementById('stream-call-overlay').style.display = 'flex';
-        
-        // 1. Init Client
-        const userId = currentUser.id.replace(/[^a-zA-Z0-9]/g, ""); // Sanitize ID
-        const token = createStreamToken(userId, STREAM_SECRET);
-        
-        streamClient = new StreamVideoClient({ 
-            apiKey: STREAM_API_KEY, 
-            user: { id: userId, name: currentUser.email.split('@')[0] },
-            token: token,
-        });
-
-        // 2. Join Call
-        activeCall = streamClient.call('default', callId);
-        await activeCall.join({ create: true });
-
-        // 3. Subscribe to State
-        activeCall.state.participants$.subscribe(participants => {
-            renderVideoGrid(participants);
-        });
-    }
-
-    function renderVideoGrid(participants) {
-        const grid = document.getElementById('stream-video-grid');
-        grid.innerHTML = ''; // Clear
-        
-        participants.forEach(p => {
-            // Wrapper
-            const div = document.createElement('div');
-            div.className = 'stream-video-participant';
-            
-            // Name Tag
-            const name = document.createElement('div');
-            name.className = 'stream-name-tag';
-            name.innerText = p.name || p.userId;
-            div.appendChild(name);
-
-            // Video Element
-            const videoEl = document.createElement('video');
-            videoEl.autoplay = true;
-            videoEl.playsInline = true;
-            videoEl.muted = p.isLocal; // Mute self to avoid echo
-            
-            // Bind Track
-            if(p.videoStream) {
-                videoEl.srcObject = p.videoStream;
-            } else {
-                // If no video, maybe show avatar placeholder
-                div.style.background = '#333'; 
-                div.style.display = 'flex'; 
-                div.style.alignItems = 'center'; 
-                div.style.justifyContent = 'center';
-                div.innerHTML += `<div style="font-size:40px;">👤</div>`;
-            }
-            
-            if(p.videoStream) div.appendChild(videoEl);
-            grid.appendChild(div);
-        });
-    }
-
-    // Controls
-    window.leaveStreamCall = async function() {
-        if(activeCall) await activeCall.leave();
-        document.getElementById('stream-call-overlay').style.display = 'none';
-        streamClient = null; activeCall = null;
-    }
-    window.toggleMic = async function() {
-        if(activeCall) await activeCall.microphone.toggle();
-    }
-    window.toggleCamera = async function() {
-        if(activeCall) await activeCall.camera.toggle();
-    }
-
-
-    // --- REST OF APP LOGIC (MESSAGING, ETC) ---
-    
-    function showToast(msg, isError = false) {
-        if(userSettings.dnd) return;
-        const box = document.getElementById('toast-box');
-        document.getElementById('toast-text').innerText = msg;
-        document.getElementById('toast-icon').innerText = isError ? '❌' : '✅';
-        box.classList.add('visible');
-        setTimeout(() => box.classList.remove('visible'), 3000);
-    }
-
-    // Make global functions
-    window.setBg = function(bgName, el) {
-        document.body.setAttribute('data-bg', bgName);
-        localStorage.setItem('folks_bg', bgName);
-        if(el) {
-            document.querySelectorAll('.bg-option').forEach(d => d.classList.remove('active'));
-            el.classList.add('active');
-        }
-    }
-    const savedBg = localStorage.getItem('folks_bg') || 'aurora';
-    document.body.setAttribute('data-bg', savedBg);
 
     window.switchTab = function(tab) {
         currentMode = tab;
@@ -744,11 +617,190 @@
         renderList();
     }
 
-    // (Include all other functions: fetchUsers, fetchChannels, renderList, openChat, openChannel, setupChatUI, closeChatMobile, loadMessages, renderMessage, sendMessage, deleteMessage, deleteChannel, openSettings...)
+    window.openSettings = function() { document.getElementById('settings-modal').style.display = 'flex'; }
+    window.openCreateChannel = function() { document.getElementById('create-channel-modal').style.display = 'flex'; newChannelType='public'; }
+    window.openAddMemberModal = function() { document.getElementById('add-member-modal').style.display = 'flex'; renderAddMemberList(); }
+    window.closeModal = function(id) { document.getElementById(id).style.display = 'none'; }
     
-    // COPY-PASTE THE REST OF THE FUNCTIONS HERE FROM PREVIOUS CODE
-    // (For brevity in this response, assume they are here. 
-    // IMPORTANT: I will paste the KEY functions below to ensure the file is complete)
+    window.setChannelType = function(t) { 
+        newChannelType = t;
+        document.querySelectorAll('.type-option').forEach(e => e.classList.remove('active'));
+        document.getElementById('type-'+t).classList.add('active');
+    }
+
+    window.createChannel = async function() {
+        const name = document.getElementById('new-channel-name').value;
+        if(!name) return;
+        const { data } = await supabase.from('channels').insert([{ 
+            name, 
+            description: document.getElementById('new-channel-desc').value,
+            owner_email: currentUser.email, 
+            is_private: newChannelType === 'private',
+            setting_read_only: document.getElementById('new-read-only').checked,
+            created_at: Date.now() 
+        }]).select();
+        if(data && data[0]) await supabase.from('channel_members').insert([{ channel_id: data[0].id, user_email: currentUser.email }]);
+        window.closeModal('create-channel-modal'); 
+        fetchChannels();
+    }
+
+    window.handleSearch = function() { renderList(); }
+    window.renderAddMemberList = function() { renderAddMemberList(); }
+
+    window.handleFileSelect = function(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => { pendingAvatar = e.target.result; document.getElementById('avatar-preview').src = pendingAvatar; };
+        reader.readAsDataURL(input.files[0]);
+    }
+
+    window.saveProfile = async function() {
+        const updates = { 
+            display_name: document.getElementById('edit-name').value,
+            bio: document.getElementById('edit-description').value,
+            setting_show_online: document.getElementById('set-show-online').checked,
+            setting_dnd: document.getElementById('set-dnd').checked,
+            setting_font_size: document.getElementById('set-font-size').value,
+            setting_compact_mode: document.getElementById('set-compact').checked,
+            setting_sound_enabled: document.getElementById('set-sound').checked,
+            setting_blur_level: document.getElementById('set-blur').value
+        };
+        if(pendingAvatar) updates.avatar_base64 = pendingAvatar;
+        await supabase.from('profiles').update(updates).eq('id', currentUser.id);
+        userSettings = updates;
+        applySiteSettings(updates);
+        window.closeModal('settings-modal');
+        showToast("Профиль сохранен");
+        fetchUsers();
+    }
+
+    window.setBg = function(bgName, el) {
+        document.body.setAttribute('data-bg', bgName);
+        localStorage.setItem('folks_bg', bgName);
+        if(el) {
+            document.querySelectorAll('.bg-option').forEach(d => d.classList.remove('active'));
+            el.classList.add('active');
+        }
+    }
+
+    window.showChatInfo = function() {
+        document.getElementById('partner-name-display').innerText = activeChatMeta.name || activeChatMeta.display_name || activeChatMeta.email;
+        document.getElementById('partner-email-display').innerText = activeChatMeta.owner_email || activeChatMeta.email;
+        document.getElementById('partner-bio-display').innerText = activeChatMeta.description || activeChatMeta.bio || "Нет описания";
+        const isOwner = currentMode === 'channels' && activeChatMeta.owner_email === currentUser.email;
+        document.getElementById('delete-channel-btn').style.display = isOwner ? 'block' : 'none';
+        document.getElementById('channel-settings-btn').style.display = isOwner ? 'block' : 'none';
+        document.getElementById('partner-modal').style.display = 'flex';
+    }
+
+    window.deleteChannel = async function() {
+        if(!confirm("Удалить канал навсегда?")) return;
+        await supabase.from('channels').delete().eq('id', activeChatId);
+        window.closeModal('partner-modal'); window.closeChatMobile(); window.switchTab('channels');
+    }
+
+    window.openChannelSettingsModal = function() {
+        window.closeModal('partner-modal');
+        document.getElementById('edit-channel-settings-modal').style.display = 'flex';
+    }
+
+    window.saveChannelSettings = async function() {
+        await supabase.from('channels').update({
+            setting_read_only: document.getElementById('edit-read-only').checked,
+            setting_admin_invite: document.getElementById('edit-admin-invite').checked,
+            setting_block_links: document.getElementById('edit-block-links').checked,
+            setting_hide_members: document.getElementById('edit-hide-members').checked,
+            setting_no_delete: document.getElementById('edit-no-delete').checked
+        }).eq('id', activeChatId);
+        window.closeModal('edit-channel-settings-modal');
+        showToast("Настройки сохранены");
+    }
+
+    window.closeChatMobile = function() {
+        document.getElementById('app-container').classList.add('mobile-view-contacts');
+        document.getElementById('app-container').classList.remove('mobile-view-chat');
+    }
+
+    window.sendMessage = async function(txtOverride = null) {
+        const txt = txtOverride || document.getElementById('msg-input').value.trim();
+        if(!txt || !activeChatId) return;
+        const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
+        const col = currentMode === 'contacts' ? 'chat_id' : 'channel_id';
+        await supabase.from(table).insert([{ [col]: activeChatId, sender: currentUser.email, text: txt, created_at: Date.now() }]);
+        if(!txtOverride) document.getElementById('msg-input').value = '';
+    }
+
+    window.deleteMessage = async function(id) {
+        if(!confirm('Удалить?')) return;
+        const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
+        await supabase.from(table).delete().eq('id', id);
+    }
+
+    window.initStreamCall = async function() {
+        if(!activeChatId) return;
+        const callId = "call_" + activeChatId.replace(/[^a-zA-Z0-9_-]/g, "") + "_" + Date.now();
+        const btnHtml = `<button style='margin-top:5px; background:#30D158; color:white; padding:5px 10px; border-radius:10px; border:none; cursor:pointer;' onclick="window.joinStreamCall('${callId}')">Присоединиться</button>`;
+        await window.sendMessage(`📞 <b>Звонок начат</b><br>${btnHtml}`, true);
+        window.joinStreamCall(callId);
+    }
+
+    window.joinStreamCall = async function(callId) {
+        document.getElementById('stream-call-overlay').style.display = 'flex';
+        const userId = currentUser.id.replace(/[^a-zA-Z0-9]/g, "");
+        const header = { alg: 'HS256', typ: 'JWT' };
+        const payload = { user_id: userId, role: 'user', exp: Math.floor(Date.now()/1000) + 3600 };
+        const token = KJUR.jws.JWS.sign("HS256", JSON.stringify(header), JSON.stringify(payload), STREAM_SECRET);
+        
+        streamClient = new StreamVideoClient({ 
+            apiKey: STREAM_API_KEY, 
+            user: { id: userId, name: currentUser.email.split('@')[0] },
+            token: token,
+        });
+        activeCall = streamClient.call('default', callId);
+        await activeCall.join({ create: true });
+        activeCall.state.participants$.subscribe(participants => {
+            renderVideoGrid(participants);
+        });
+    }
+
+    window.leaveStreamCall = async function() {
+        if(activeCall) await activeCall.leave();
+        document.getElementById('stream-call-overlay').style.display = 'none';
+        streamClient = null; activeCall = null;
+    }
+    window.toggleMic = async function() { if(activeCall) await activeCall.microphone.toggle(); }
+    window.toggleCamera = async function() { if(activeCall) await activeCall.camera.toggle(); }
+
+    // --- INTERNAL FUNCTIONS ---
+
+    function showToast(msg, isError = false) {
+        const box = document.getElementById('toast-box');
+        document.getElementById('toast-text').innerText = msg;
+        document.getElementById('toast-icon').innerText = isError ? '❌' : '✅';
+        box.classList.add('visible');
+        setTimeout(() => box.classList.remove('visible'), 3000);
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) initApp(session.user);
+        const savedBg = localStorage.getItem('folks_bg') || 'aurora';
+        document.body.setAttribute('data-bg', savedBg);
+    });
+
+    supabase.auth.onAuthStateChange(async (evt, session) => {
+        if (session) { if (!currentUser || currentUser.id !== session.user.id) initApp(session.user); }
+        else { currentUser = null; document.getElementById('auth-screen').style.display = 'block'; document.getElementById('app-container').style.display = 'none'; }
+    });
+
+    async function initApp(user) {
+        currentUser = user;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        try { await supabase.from('profiles').upsert({ id: currentUser.id, email: currentUser.email, last_online: Date.now() }, { onConflict: 'id' }); } catch(e) {}
+        loadGlobalData();
+        fillSettings();
+        window.switchTab('contacts');
+    }
 
     function loadGlobalData() {
         supabase.channel('global_updates')
@@ -799,26 +851,26 @@
                 title = item.display_name || item.email.split('@')[0];
                 sub = item.email;
                 imgHtml = item.avatar_base64 ? `<img src="${item.avatar_base64}">` : title[0].toUpperCase();
-                div.onclick = () => window.openChat(item);
+                div.onclick = () => openChat(item);
             } else {
                 title = item.name;
                 sub = item.description || 'Нет описания';
                 imgHtml = item.is_private ? '🔒' : '📢';
-                div.onclick = () => window.openChannel(item);
+                div.onclick = () => openChannel(item);
             }
             div.innerHTML = `<div class="avatar" style="${currentMode==='channels'?'background:linear-gradient(135deg, #2b1055, #7597de)':''}">${imgHtml}</div><div><h4 style="font-size:15px; font-weight:600;">${title}</h4><p style="font-size:12px; color:var(--text-secondary);">${sub}</p></div>`;
             container.appendChild(div);
         });
     }
 
-    window.openChat = async function(user) {
+    function openChat(user) {
         activeChatMeta = user;
         activeChatId = [currentUser.email, user.email].sort().join('_');
         setupChatUI(user.display_name || user.email.split('@')[0], user.email, user.avatar_base64);
         loadMessages('messages', activeChatId);
     }
 
-    window.openChannel = async function(channel) {
+    function openChannel(channel) {
         activeChatMeta = channel;
         activeChatId = channel.id; 
         const type = channel.is_private ? "Закрытая группа" : "Публичный канал";
@@ -848,11 +900,6 @@
         }
     }
 
-    window.closeChatMobile = function() {
-        document.getElementById('app-container').classList.add('mobile-view-contacts');
-        document.getElementById('app-container').classList.remove('mobile-view-chat');
-    }
-
     async function loadMessages(table, filterId) {
         const container = document.getElementById('messages');
         container.innerHTML = '<div style="text-align:center; padding:20px; opacity:0.6;">Загрузка...</div>';
@@ -880,7 +927,7 @@
         const isMe = msg.sender === currentUser.email;
         div.className = `msg ${isMe ? 'me' : 'them'}`;
         
-        if(msg.text.includes('<b>Звонок начат</b>') || msg.text.includes('Входящий звонок')) {
+        if(msg.text.includes('<b>Звонок начат</b>')) {
             div.classList.add('call-msg');
             div.innerHTML = msg.text;
         } else {
@@ -897,113 +944,19 @@
         document.getElementById('messages').appendChild(div);
     }
 
-    window.sendMessage = async function(txtOverride = null, isHtml = false) {
-        const txt = txtOverride || document.getElementById('msg-input').value.trim();
-        if(!txt || !activeChatId) return;
-
-        const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
-        const col = currentMode === 'contacts' ? 'chat_id' : 'channel_id';
-
-        await supabase.from(table).insert([{ [col]: activeChatId, sender: currentUser.email, text: txt, created_at: Date.now() }]);
-        if(!txtOverride) document.getElementById('msg-input').value = '';
+    function renderAddMemberList() {
+        const list = document.getElementById('add-member-list');
+        list.innerHTML = '';
+        const term = document.getElementById('member-search').value.toLowerCase();
+        allUsers.filter(u => (u.display_name || u.email).toLowerCase().includes(term)).forEach(u => {
+            const div = document.createElement('div'); div.className = 'user-card';
+            div.innerHTML = `<div class="avatar">${u.display_name?u.display_name[0]:u.email[0]}</div><div>${u.email}</div><div style="margin-left:auto">+</div>`;
+            div.onclick = async () => { await supabase.from('channel_members').insert([{ channel_id: activeChatId, user_email: u.email }]); showToast('Добавлен'); };
+            list.appendChild(div);
+        });
     }
 
-    window.deleteMessage = async function(id) {
-        if(!confirm('Удалить?')) return;
-        const table = currentMode === 'contacts' ? 'messages' : 'channel_messages';
-        await supabase.from(table).delete().eq('id', id);
-    }
-
-    window.deleteChannel = async function() {
-        if(!confirm("Удалить канал навсегда?")) return;
-        await supabase.from('channels').delete().eq('id', activeChatId);
-        closeModal('partner-modal'); closeChatMobile(); switchTab('channels');
-    }
-
-    // Modals & Settings
-    window.openSettings = function() { document.getElementById('settings-modal').style.display = 'flex'; }
-    window.openCreateChannel = function() { document.getElementById('create-channel-modal').style.display = 'flex'; newChannelType='public'; }
-    window.openAddMemberModal = function() { document.getElementById('add-member-modal').style.display = 'flex'; renderAddMemberList(); }
-    window.closeModal = function(id) { document.getElementById(id).style.display = 'none'; }
-    window.setChannelType = function(t) { newChannelType = t; }
-    
-    window.createChannel = async function() {
-        const name = document.getElementById('new-channel-name').value;
-        if(!name) return;
-        const { data } = await supabase.from('channels').insert([{ 
-            name, 
-            description: document.getElementById('new-channel-desc').value,
-            owner_email: currentUser.email, 
-            is_private: newChannelType === 'private', 
-            created_at: Date.now() 
-        }]).select();
-        if(data && data[0]) await supabase.from('channel_members').insert([{ channel_id: data[0].id, user_email: currentUser.email }]);
-        closeModal('create-channel-modal'); 
-        fetchChannels();
-    }
-
-    window.showChatInfo = function() {
-        document.getElementById('partner-name-display').innerText = activeChatMeta.name || activeChatMeta.display_name || activeChatMeta.email;
-        document.getElementById('partner-email-display').innerText = activeChatMeta.owner_email || activeChatMeta.email;
-        document.getElementById('partner-bio-display').innerText = activeChatMeta.description || activeChatMeta.bio || "Нет описания";
-        
-        // Show settings/delete if owner
-        const isOwner = currentMode === 'channels' && activeChatMeta.owner_email === currentUser.email;
-        document.getElementById('delete-channel-btn').style.display = isOwner ? 'block' : 'none';
-        document.getElementById('channel-settings-btn').style.display = isOwner ? 'block' : 'none';
-        
-        document.getElementById('partner-modal').style.display = 'flex';
-    }
-
-    window.openChannelSettingsModal = function() {
-        document.getElementById('edit-read-only').checked = activeChatMeta.setting_read_only;
-        document.getElementById('edit-admin-invite').checked = activeChatMeta.setting_admin_invite;
-        document.getElementById('edit-block-links').checked = activeChatMeta.setting_block_links;
-        document.getElementById('edit-hide-members').checked = activeChatMeta.setting_hide_members;
-        document.getElementById('edit-no-delete').checked = activeChatMeta.setting_no_delete;
-        closeModal('partner-modal');
-        document.getElementById('edit-channel-settings-modal').style.display = 'flex';
-    }
-
-    window.saveChannelSettings = async function() {
-        await supabase.from('channels').update({
-            setting_read_only: document.getElementById('edit-read-only').checked,
-            setting_admin_invite: document.getElementById('edit-admin-invite').checked,
-            setting_block_links: document.getElementById('edit-block-links').checked,
-            setting_hide_members: document.getElementById('edit-hide-members').checked,
-            setting_no_delete: document.getElementById('edit-no-delete').checked
-        }).eq('id', activeChatId);
-        closeModal('edit-channel-settings-modal');
-        showToast("Настройки сохранены");
-    }
-
-    window.handleFileSelect = function(input) {
-        const reader = new FileReader();
-        reader.onload = (e) => { pendingAvatar = e.target.result; document.getElementById('avatar-preview').src = pendingAvatar; };
-        reader.readAsDataURL(input.files[0]);
-    }
-
-    window.saveProfile = async function() {
-        const updates = { 
-            display_name: document.getElementById('edit-name').value,
-            bio: document.getElementById('edit-description').value,
-            setting_show_online: document.getElementById('set-show-online').checked,
-            setting_dnd: document.getElementById('set-dnd').checked,
-            setting_font_size: document.getElementById('set-font-size').value,
-            setting_compact_mode: document.getElementById('set-compact').checked,
-            setting_sound_enabled: document.getElementById('set-sound').checked,
-            setting_blur_level: document.getElementById('set-blur').value
-        };
-        if(pendingAvatar) updates.avatar_base64 = pendingAvatar;
-        await supabase.from('profiles').update(updates).eq('id', currentUser.id);
-        userSettings = updates;
-        applySiteSettings(updates);
-        closeModal('settings-modal');
-        showToast("Профиль сохранен");
-        fetchUsers();
-    }
-
-    window.fillSettings = async function() {
+    async function fillSettings() {
         const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
         if(data) {
             document.getElementById('edit-name').value = data.display_name || '';
@@ -1022,22 +975,21 @@
         if(data.setting_blur_level === 'none') document.body.classList.add('blur-none');
     }
 
-    window.handleSearch = function() { renderList(); }
-    function renderAddMemberList() {
-        const list = document.getElementById('add-member-list');
-        list.innerHTML = '';
-        const term = document.getElementById('member-search').value.toLowerCase();
-        allUsers.filter(u => (u.display_name || u.email).toLowerCase().includes(term)).forEach(u => {
-            const div = document.createElement('div'); div.className = 'user-card';
-            div.innerHTML = `<div class="avatar">${u.display_name?u.display_name[0]:u.email[0]}</div><div>${u.email}</div><div style="margin-left:auto">+</div>`;
-            div.onclick = async () => { await supabase.from('channel_members').insert([{ channel_id: activeChatId, user_email: u.email }]); showToast('Добавлен'); };
-            list.appendChild(div);
+    function renderVideoGrid(participants) {
+        const grid = document.getElementById('stream-video-grid');
+        grid.innerHTML = ''; 
+        participants.forEach(p => {
+            const div = document.createElement('div'); div.className = 'stream-video-participant';
+            const name = document.createElement('div'); name.className = 'stream-name-tag'; name.innerText = p.name || p.userId;
+            div.appendChild(name);
+            const videoEl = document.createElement('video');
+            videoEl.autoplay = true; videoEl.playsInline = true; videoEl.muted = p.isLocal;
+            if(p.videoStream) videoEl.srcObject = p.videoStream;
+            else { div.style.background = '#333'; div.innerHTML += `<div style="font-size:40px;">👤</div>`; }
+            if(p.videoStream) div.appendChild(videoEl);
+            grid.appendChild(div);
         });
     }
-
-    window.doLogin = async function() { const { error } = await supabase.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value }); if(error) showToast(error.message, true); }
-    window.doRegister = async function() { const { error } = await supabase.auth.signUp({ email: document.getElementById('email').value, password: document.getElementById('password').value }); if(error) showToast(error.message, true); else { showToast("Успех! Войдите."); doLogin(); } }
-    window.doLogout = async function() { await supabase.auth.signOut(); location.reload(); }
 
 </script>
 </body>
